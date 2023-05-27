@@ -15,6 +15,7 @@ class MyWindow(pyglet.window.Window):
         background_color = [150, 150, 150, 255]
         background_color = [i / 255 for i in background_color]
         glClearColor(*background_color)
+        TetrisGame.initialize()
 
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.LEFT:
