@@ -1,5 +1,6 @@
 import math
 import random
+import time
 
 from utils import Point
 
@@ -8,12 +9,18 @@ class TetrisGame:
     columns = 10
     rows = 20
     score = 0
+    best_score = -1
     pieces = []
     next_pieces = []
     grid = []
+    max_time_render = 0
+    is_game_running = False
 
     @staticmethod
     def initialize():
+        TetrisGame.best_score = max(TetrisGame.best_score, TetrisGame.score)
+        TetrisGame.score = 0
+        TetrisGame.is_game_running = True
         for i in range(len(TetrisGame.pieces))[::-1]:
             TetrisGame.pieces.pop(i)
         for i in range(len(TetrisGame.next_pieces))[::-1]:
@@ -31,6 +38,9 @@ class TetrisGame:
 
     @staticmethod
     def render(dt):
+        if not TetrisGame.is_game_running:
+            return
+        start_time = time.time()
         TetrisGame.pop_full_rows()
         TetrisGame.move_all_down()
         some_piece_of_user = False
@@ -48,6 +58,14 @@ class TetrisGame:
                         game_ended = True
             if not game_ended:
                 TetrisGame.add_piece()
+            else:
+                TetrisGame.is_game_running = False
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        if TetrisGame.max_time_render < total_time:
+            TetrisGame.max_time_render = total_time
+        print(f"maximum Total time to 'move_all_down': {TetrisGame.max_time_render}")
 
     @staticmethod
     def rotate_piece_90(clockwise):
