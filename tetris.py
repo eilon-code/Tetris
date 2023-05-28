@@ -1,5 +1,6 @@
 import math
 import random
+import time
 
 from utils import Point
 
@@ -36,6 +37,7 @@ class TetrisGame:
 
     @staticmethod
     def render(dt):
+        start_time = time.time()
         if not TetrisGame.is_game_running:
             return
         TetrisGame.pop_full_rows()
@@ -57,6 +59,11 @@ class TetrisGame:
                 TetrisGame.add_piece()
             else:
                 TetrisGame.is_game_running = False
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        if total_time > 1 / 120.0:
+            print(f"Render Over-run: {total_time}")
 
     @staticmethod
     def rotate_piece_90(clockwise):
@@ -80,6 +87,14 @@ class TetrisGame:
 
         for i in range(len(TetrisGame.pieces)):
             TetrisGame.pieces[i].move_down()
+
+    @staticmethod
+    def force_down():
+        while TetrisGame.is_game_running:
+            piece = TetrisGame.next_pieces[0]
+            TetrisGame.render(0)
+            if piece != TetrisGame.next_pieces[0]:
+                break
 
     @staticmethod
     def pop_full_rows():

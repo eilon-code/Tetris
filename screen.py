@@ -42,6 +42,12 @@ class MyWindow(pyglet.window.Window):
             TetrisGame.rotate_piece_90(True)
         elif symbol == pyglet.window.key.D:
             TetrisGame.rotate_piece_90(False)
+        elif symbol == pyglet.window.key.DOWN:
+            TetrisGame.force_down()
+        else:
+            pass
+
+        self.on_draw()
 
     def on_key_release(self, symbol, modifiers):
         pass
@@ -70,10 +76,6 @@ class MyWindow(pyglet.window.Window):
             else:
                 self.draw_award()
         self.batch.draw()
-
-    def update(self, dt):
-        TetrisGame.render(dt)
-        self.on_draw()
 
     def change_mouse_curser(self):
         default_cursor = self.get_system_mouse_cursor(self.CURSOR_DEFAULT)
@@ -227,10 +229,13 @@ class MyWindow(pyglet.window.Window):
         for node in piece.nodes_centers:
             if round(node.y) < TetrisGame.rows or (not piece.is_active):
                 if not ignore_center:
-                    self.draw_piece_rectangle(
-                        x + round(node.x) * cell_size,
-                        y + round(node.y) * cell_size,
-                        piece.color, cell_size)
+                    utils.draw_rectangle(
+                        x + round(node.x) * cell_size, y + round(node.y) * cell_size,
+                        cell_size, cell_size, piece.color, 255, self.batch)
+                    # self.draw_piece_rectangle(
+                    #     x + round(node.x) * cell_size,
+                    #     y + round(node.y) * cell_size,
+                    #     piece.color, cell_size)
                 else:
                     self.draw_piece_rectangle(
                         round(x + (node.x - piece.center_x) * cell_size),
