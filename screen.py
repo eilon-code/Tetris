@@ -141,7 +141,7 @@ class MyWindow(pyglet.window.Window):
                              -self.cell_size * 2 - self.outer_cell_size * TetrisGame.next_reveals * 3,
                              (230, 230, 230), 255,
                              self.batch)
-        label = pyglet.text.Label(f"Next Piece:", font_name='David', font_size=20,
+        label = pyglet.text.Label(f"Next Pieces:", font_name='David', font_size=20,
                                   x=start_x + self.cell_size // 2, y=start_y - self.cell_size // 4,
                                   anchor_x='left', anchor_y='top', color=(0, 0, 0, 255))
         label.draw()
