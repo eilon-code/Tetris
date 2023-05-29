@@ -9,6 +9,7 @@ class MyWindow(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.cell_size = 24
+        self.outer_cell_size = 24
 
         self.batch = pyglet.graphics.Batch()
         background_color = [150, 150, 150, 255]
@@ -38,19 +39,24 @@ class MyWindow(pyglet.window.Window):
             TetrisGame.move_left()
         elif symbol == pyglet.window.key.RIGHT:
             TetrisGame.move_right()
-        if symbol == pyglet.window.key.A:
+        elif symbol == pyglet.window.key.UP:
             TetrisGame.rotate_piece_90(True)
-        elif symbol == pyglet.window.key.D:
+        elif symbol == pyglet.window.key.Z:
             TetrisGame.rotate_piece_90(False)
-        elif symbol == pyglet.window.key.DOWN:
+        elif symbol == pyglet.window.key.SPACE:
             TetrisGame.force_down()
+        elif symbol == pyglet.window.key.TAB:
+            TetrisGame.switch_hold()
+        elif symbol == pyglet.window.key.DOWN:
+            TetrisGame.second_fracture = TetrisGame.original_second_fracture / 2
         else:
             pass
 
         self.on_draw()
 
     def on_key_release(self, symbol, modifiers):
-        pass
+        if symbol == pyglet.window.key.DOWN:
+            TetrisGame.second_fracture = TetrisGame.original_second_fracture
 
     def on_mouse_release(self, x, y, button, modifiers):
         if (self.defeat_button.release() or self.award_button.release()) and not TetrisGame.is_game_running:
@@ -69,7 +75,8 @@ class MyWindow(pyglet.window.Window):
         self.change_mouse_curser()
         self.draw_grid()
         self.draw_score()
-        self.draw_next_piece()
+        self.draw_next_pieces()
+        self.draw_hold_piece()
         if not TetrisGame.is_game_running:
             if TetrisGame.score <= TetrisGame.best_score:
                 self.draw_defeat()
@@ -125,21 +132,44 @@ class MyWindow(pyglet.window.Window):
                                              anchor_x='center', anchor_y='center')
         best_score_label.draw()
 
-    def draw_next_piece(self):
+    def draw_next_pieces(self):
         start_x = self.width // 2 + self.cell_size * (TetrisGame.columns // 2 + 1)
         start_y = self.height // 2 + self.cell_size * (TetrisGame.rows // 2)
 
-        utils.draw_rectangle(start_x, start_y, self.cell_size * 6, -self.cell_size * 9, (230, 230, 230), 255,
+        utils.draw_rectangle(start_x, start_y,
+                             self.cell_size * 6,
+                             -self.cell_size * 2 - self.outer_cell_size * TetrisGame.next_reveals * 3,
+                             (230, 230, 230), 255,
                              self.batch)
         label = pyglet.text.Label(f"Next Piece:", font_name='David', font_size=20,
                                   x=start_x + self.cell_size // 2, y=start_y - self.cell_size // 4,
                                   anchor_x='left', anchor_y='top', color=(0, 0, 0, 255))
         label.draw()
 
-        if len(TetrisGame.next_pieces) > 0:
-            piece_to_draw = TetrisGame.next_pieces[0]
-            self.draw_tetris_piece(piece_to_draw, start_x + self.cell_size * 2.25, start_y - self.cell_size * 6,
-                                   self.cell_size * 1.4, True)
+        for i in range(len(TetrisGame.next_pieces)):
+            piece_to_draw = TetrisGame.next_pieces[i]
+            self.draw_tetris_piece(piece_to_draw,
+                                   start_x + self.cell_size * 2.25,
+                                   start_y - (self.cell_size + self.outer_cell_size) * 2 - self.outer_cell_size * 3 * i,
+                                   self.outer_cell_size, True)
+
+    def draw_hold_piece(self):
+        start_x = self.width // 2 - self.cell_size * (TetrisGame.columns // 2 + 7)
+        start_y = self.height // 2 + self.cell_size * (TetrisGame.rows // 2)
+
+        utils.draw_rectangle(start_x, start_y, self.cell_size * 6, -self.cell_size * 2 - self.outer_cell_size * 3,
+                             (230, 230, 230), 255,
+                             self.batch)
+        label = pyglet.text.Label(f"Hold Piece:", font_name='David', font_size=20,
+                                  x=start_x + self.cell_size // 2, y=start_y - self.cell_size // 4,
+                                  anchor_x='left', anchor_y='top', color=(0, 0, 0, 255))
+        label.draw()
+
+        if TetrisGame.hold_piece is not None:
+            self.draw_tetris_piece(TetrisGame.hold_piece,
+                                   start_x + self.cell_size * 2.25,
+                                   start_y - (self.cell_size + self.outer_cell_size) * 2,
+                                   self.outer_cell_size, True)
 
     def draw_defeat(self):
         start_x = self.width // 2 - self.cell_size * (TetrisGame.columns // 2 + 6)
@@ -226,21 +256,30 @@ class MyWindow(pyglet.window.Window):
         self.award_button.draw()
 
     def draw_tetris_piece(self, piece, x, y, cell_size, ignore_center=False):
-        for node in piece.nodes_centers:
-            if round(node.y) < TetrisGame.rows or (not piece.is_active):
-                if not ignore_center:
-                    utils.draw_rectangle(
-                        x + round(node.x) * cell_size, y + round(node.y) * cell_size,
-                        cell_size, cell_size, piece.color, 255, self.batch)
-                    # self.draw_piece_rectangle(
-                    #     x + round(node.x) * cell_size,
-                    #     y + round(node.y) * cell_size,
-                    #     piece.color, cell_size)
-                else:
-                    self.draw_piece_rectangle(
-                        round(x + (node.x - piece.center_x) * cell_size),
-                        round(y + (node.y - piece.center_y) * cell_size),
-                        piece.color, cell_size)
+        if ignore_center:
+            y_min = 0
+            for node in piece.nodes:
+                y_min = min(node.y, y_min)
+            for node in piece.nodes:
+                utils.draw_rectangle(
+                    round(x + node.x * cell_size),
+                    round(y + (node.y - y_min) * cell_size),
+                    cell_size, cell_size, piece.color, 255, self.batch)
+                # self.draw_piece_rectangle(
+                #     round(x + node.x * cell_size),
+                #     round(y + (node.y - y_min) * cell_size),
+                #     piece.color, cell_size)
+        else:
+            for node in piece.nodes_centers:
+                if round(node.y) < TetrisGame.rows or (not piece.is_active):
+                    if not ignore_center:
+                        utils.draw_rectangle(
+                            x + round(node.x) * cell_size, y + round(node.y) * cell_size,
+                            cell_size, cell_size, piece.color, 255, self.batch)
+                        # self.draw_piece_rectangle(
+                        #     x + round(node.x) * cell_size,
+                        #     y + round(node.y) * cell_size,
+                        #     piece.color, cell_size)
 
     def draw_piece_rectangle(self, x, y, color, cell_size):
         edges = 0.12 * cell_size

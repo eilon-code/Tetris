@@ -6,11 +6,16 @@ from utils import Point
 
 
 class TetrisGame:
+    timer_sum = 0
+    original_second_fracture = 0.4
+    second_fracture = original_second_fracture
+    hold_piece = None
     columns = 10
     rows = 20
     score = 0
     best_score = -1
     pieces = []
+    next_reveals = 5
     next_pieces = []
     grid = []
     is_game_running = False
@@ -20,6 +25,7 @@ class TetrisGame:
         TetrisGame.best_score = max(TetrisGame.best_score, TetrisGame.score)
         TetrisGame.score = 0
         TetrisGame.is_game_running = True
+        TetrisGame.hold_piece = None
         for i in range(len(TetrisGame.pieces))[::-1]:
             TetrisGame.pieces.pop(i)
         for i in range(len(TetrisGame.next_pieces))[::-1]:
@@ -37,6 +43,11 @@ class TetrisGame:
 
     @staticmethod
     def render(dt):
+        TetrisGame.timer_sum += dt
+        if TetrisGame.timer_sum < TetrisGame.second_fracture:
+            return
+        TetrisGame.timer_sum -= TetrisGame.second_fracture
+        TetrisGame.timer_sum -= 0.5
         start_time = time.time()
         if not TetrisGame.is_game_running:
             return
@@ -92,7 +103,7 @@ class TetrisGame:
     def force_down():
         while TetrisGame.is_game_running:
             piece = TetrisGame.next_pieces[0]
-            TetrisGame.render(0)
+            TetrisGame.render(TetrisGame.second_fracture)
             if piece != TetrisGame.next_pieces[0]:
                 break
 
@@ -144,24 +155,27 @@ class TetrisGame:
                 TetrisGame.score += 1200
 
     @staticmethod
-    def add_piece():
-        if len(TetrisGame.next_pieces) == 0:
+    def add_piece(piece=None):
+        while len(TetrisGame.next_pieces) < TetrisGame.next_reveals:
             TetrisGame.generate_next_piece()
+
+        TetrisGame.generate_next_piece(piece)
         next_piece = TetrisGame.next_pieces.pop(0)
         next_piece.is_active = True
         TetrisGame.pieces.append(next_piece)
-        TetrisGame.generate_next_piece()
 
     @staticmethod
-    def generate_next_piece():
-        tetris_pieces_types = [LinePiece, LBlock, ReverseLBlock, Square, Squiggly, ReverseSquiggly, TBlock]
-
-        index = random.randint(0, len(tetris_pieces_types) - 1)
+    def generate_next_piece(piece=None):
         angle = random.randint(0, 3) * 90
-        piece = tetris_pieces_types[index](TetrisGame.columns // 2, TetrisGame.rows, angle, False)
-        if index == 0 or index == 3:
-            piece.center_x += 0.5
-            piece.center_y += 0.5
+        hold_piece = not piece is None
+
+        if piece is None:
+            tetris_pieces_types = [LinePiece, LBlock, ReverseLBlock, Square, Squiggly, ReverseSquiggly, TBlock]
+            index = random.randint(0, len(tetris_pieces_types) - 1)
+            piece = tetris_pieces_types[index](TetrisGame.columns // 2, TetrisGame.rows, angle, False)
+            if index == 0 or index == 3:
+                piece.center_x += 0.5
+                piece.center_y += 0.5
 
         min_x = TetrisGame.columns - 1
         max_x = 0
@@ -180,7 +194,29 @@ class TetrisGame:
         piece.center_x += random.randint(0, TetrisGame.columns - 1 - width) - min_x
         piece.update()
 
-        TetrisGame.next_pieces.append(piece)
+        if hold_piece:
+            TetrisGame.next_pieces.insert(0, piece)
+        else:
+            TetrisGame.next_pieces.append(piece)
+
+    @staticmethod
+    def switch_hold():
+        index_to_switch = -1
+        for i in range(len(TetrisGame.pieces)):
+            if index_to_switch != -1:
+                continue
+            if TetrisGame.pieces[i].is_piece_of_user:
+                index_to_switch = i
+
+        for row in range(TetrisGame.rows):
+            for column in range(TetrisGame.columns):
+                if TetrisGame.grid[row][column] == index_to_switch:
+                    TetrisGame.grid[row][column] = -1
+
+        piece_to_hold = TetrisGame.pieces.pop(index_to_switch)
+        TetrisGame.add_piece(TetrisGame.hold_piece)
+        TetrisGame.hold_piece = None
+        TetrisGame.hold_piece = piece_to_hold
 
 
 class Piece:
@@ -348,21 +384,21 @@ class Piece:
 class LinePiece(Piece):
     def __init__(self, center_x, center_y, angle, is_active):
         color = (51, 153, 255)
-        nodes = [Point(0.5, 1.5), Point(0.5, 0.5), Point(0.5, -0.5), Point(0.5, -1.5)]
+        nodes = [Point(1.5, 0.5), Point(0.5, 0.5), Point(-0.5, 0.5), Point(-1.5, 0.5)]
         super().__init__(center_x, center_y, color, nodes, angle, is_active)
 
 
 class LBlock(Piece):
     def __init__(self, center_x, center_y, angle, is_active):
         color = (255, 128, 0)
-        nodes = [Point(-1, 1), Point(0, 1), Point(0, 0), Point(0, -1)]
+        nodes = [Point(-1, 0), Point(0, 0), Point(1, 0), Point(1, 1)]
         super().__init__(center_x, center_y, color, nodes, angle, is_active)
 
 
 class ReverseLBlock(Piece):
     def __init__(self, center_x, center_y, angle, is_active):
         color = (0, 0, 204)
-        nodes = [Point(1, 1), Point(0, 1), Point(0, 0), Point(0, -1)]
+        nodes = [Point(-1, 1), Point(-1, 0), Point(0, 0), Point(1, 0)]
         super().__init__(center_x, center_y, color, nodes, angle, is_active)
 
 
@@ -376,7 +412,7 @@ class Square(Piece):
 class Squiggly(Piece):
     def __init__(self, center_x, center_y, angle, is_active):
         color = (255, 0, 0)
-        nodes = [Point(-1, 0), Point(0, -1), Point(0, 0), Point(1, -1)]
+        nodes = [Point(-1, 1), Point(0, 1), Point(0, 0), Point(1, 0)]
         super().__init__(center_x, center_y, color, nodes, angle, is_active)
 
 
@@ -390,5 +426,5 @@ class ReverseSquiggly(Piece):
 class TBlock(Piece):
     def __init__(self, center_x, center_y, angle, is_active):
         color = (102, 0, 204)
-        nodes = [Point(0, 1), Point(0, 0), Point(1, 0), Point(0, -1)]
+        nodes = [Point(-1, 0), Point(0, 0), Point(0, 1), Point(1, 0)]
         super().__init__(center_x, center_y, color, nodes, angle, is_active)
