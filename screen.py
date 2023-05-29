@@ -142,8 +142,8 @@ class MyWindow(pyglet.window.Window):
                              (230, 230, 230), 255,
                              self.batch)
         label = pyglet.text.Label(f"Next Pieces:", font_name='David', font_size=20,
-                                  x=start_x + self.cell_size // 2, y=start_y - self.cell_size // 4,
-                                  anchor_x='left', anchor_y='top', color=(0, 0, 0, 255))
+                                  x=start_x + round(self.cell_size * 3), y=start_y - self.cell_size // 4,
+                                  anchor_x='center', anchor_y='top', color=(0, 0, 0, 255))
         label.draw()
 
         for i in range(len(TetrisGame.next_pieces)):
@@ -161,8 +161,8 @@ class MyWindow(pyglet.window.Window):
                              (230, 230, 230), 255,
                              self.batch)
         label = pyglet.text.Label(f"Hold Piece:", font_name='David', font_size=20,
-                                  x=start_x + self.cell_size // 2, y=start_y - self.cell_size // 4,
-                                  anchor_x='left', anchor_y='top', color=(0, 0, 0, 255))
+                                  x=start_x + round(self.cell_size * 3), y=start_y - self.cell_size // 4,
+                                  anchor_x='center', anchor_y='top', color=(0, 0, 0, 255))
         label.draw()
 
         if TetrisGame.hold_piece is not None:
