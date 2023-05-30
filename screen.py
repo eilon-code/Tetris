@@ -14,6 +14,8 @@ class MyWindow(pyglet.window.Window):
         self.outer_cell_size = 24
         self.is_game_running = True
         self.is_fast_mode = False
+        self.was_direction_0 = True
+        self.direction_x_step = 0
         self.iteration = 0
 
         self.main_batch = pyglet.graphics.Batch()
@@ -48,9 +50,11 @@ class MyWindow(pyglet.window.Window):
 
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.LEFT:
-            TetrisGame.move_left()
+            self.direction_x_step = -1
+            TetrisGame.move_x_steps(self.direction_x_step)
         elif symbol == pyglet.window.key.RIGHT:
-            TetrisGame.move_right()
+            self.direction_x_step = 1
+            TetrisGame.move_x_steps(self.direction_x_step)
         elif symbol == pyglet.window.key.UP:
             TetrisGame.rotate_piece_90(True)
         elif symbol == pyglet.window.key.Z:
@@ -70,6 +74,8 @@ class MyWindow(pyglet.window.Window):
     def on_key_release(self, symbol, modifiers):
         if symbol == pyglet.window.key.DOWN:
             self.is_fast_mode = False
+        elif symbol == pyglet.window.key.LEFT or symbol == pyglet.window.key.RIGHT:
+            self.direction_x_step = 0
 
     def on_mouse_release(self, x, y, button, modifiers):
         if (self.defeat_button.release() or self.award_button.release()) and not self.is_game_running:
@@ -133,10 +139,16 @@ class MyWindow(pyglet.window.Window):
             print(f"total_time: {end_time - start_time}")
 
     def update(self, dt):
-        if self.is_fast_mode or self.iteration == 1:
+        if self.direction_x_step != 0:
+            if not self.was_direction_0:
+                TetrisGame.move_x_steps(self.direction_x_step)
+        self.was_direction_0 = self.direction_x_step == 0
+        if self.iteration % 4 == 2 and self.is_fast_mode:
+            TetrisGame.move_down_user_pieces()
+        if self.iteration % 4 == 0:
             TetrisGame.render(self)
         self.iteration += 1
-        self.iteration %= 2
+        self.iteration %= 4
 
     def change_mouse_curser(self):
         default_cursor = self.get_system_mouse_cursor(self.CURSOR_DEFAULT)

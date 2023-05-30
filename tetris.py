@@ -76,19 +76,23 @@ class TetrisGame:
             TetrisGame.pieces[i].rotate_90_degrees(clockwise)
 
     @staticmethod
-    def move_right():
+    def move_x_steps(x):
         for i in range(len(TetrisGame.pieces)):
-            TetrisGame.pieces[i].move_on_x_axis(1)
-
-    @staticmethod
-    def move_left():
-        for i in range(len(TetrisGame.pieces)):
-            TetrisGame.pieces[i].move_on_x_axis(-1)
+            TetrisGame.pieces[i].move_on_x_axis(x)
 
     @staticmethod
     def move_all_down():
         for i in range(len(TetrisGame.pieces)):
             TetrisGame.pieces[i].moved_down = False
+
+        for i in range(len(TetrisGame.pieces)):
+            TetrisGame.pieces[i].move_down()
+
+    @staticmethod
+    def move_down_user_pieces():
+        for i in range(len(TetrisGame.pieces)):
+            if TetrisGame.pieces[i].is_piece_of_user:
+                TetrisGame.pieces[i].moved_down = False
 
         for i in range(len(TetrisGame.pieces)):
             TetrisGame.pieces[i].move_down()
@@ -160,8 +164,8 @@ class TetrisGame:
 
     @staticmethod
     def generate_next_piece(piece=None):
-        angle = random.randint(0, 3) * 90
-        hold_piece = not piece is None
+        angle = 0   # random.randint(0, 3) * 90
+        hold_piece = piece is not None
 
         if piece is None:
             tetris_pieces_types = [LinePiece, LBlock, ReverseLBlock, Square, Squiggly, ReverseSquiggly, TBlock]
@@ -185,7 +189,8 @@ class TetrisGame:
 
         piece.center_y += TetrisGame.rows - min_y
         width = max_x - min_x + 1
-        piece.center_x += random.randint(0, TetrisGame.columns - 1 - width) - min_x
+        shift = (TetrisGame.columns-width) // 2     # random.randint(0, TetrisGame.columns - 1 - width)
+        piece.center_x += shift - min_x
         piece.update()
 
         if hold_piece:
