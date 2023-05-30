@@ -6,9 +6,6 @@ from utils import Point
 
 
 class TetrisGame:
-    timer_sum = 0
-    original_second_fracture = 0.4
-    second_fracture = original_second_fracture
     hold_piece = None
     columns = 10
     rows = 20
@@ -42,12 +39,7 @@ class TetrisGame:
                 TetrisGame.grid[row].append(-1)
 
     @staticmethod
-    def render(dt):
-        TetrisGame.timer_sum += dt
-        if TetrisGame.timer_sum < TetrisGame.second_fracture:
-            return
-        TetrisGame.timer_sum -= TetrisGame.second_fracture
-        TetrisGame.timer_sum -= 0.5
+    def render(window=None):
         start_time = time.time()
         if not TetrisGame.is_game_running:
             return
@@ -70,6 +62,8 @@ class TetrisGame:
                 TetrisGame.add_piece()
             else:
                 TetrisGame.is_game_running = False
+                if window is not None:
+                    window.is_game_running = False
 
         end_time = time.time()
         total_time = end_time - start_time
@@ -100,10 +94,10 @@ class TetrisGame:
             TetrisGame.pieces[i].move_down()
 
     @staticmethod
-    def force_down():
+    def force_down(window):
         while TetrisGame.is_game_running:
             piece = TetrisGame.next_pieces[0]
-            TetrisGame.render(TetrisGame.second_fracture)
+            TetrisGame.render(window)
             if piece != TetrisGame.next_pieces[0]:
                 break
 

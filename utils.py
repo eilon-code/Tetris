@@ -1,5 +1,3 @@
-import math
-
 import pyglet
 from pyglet import shapes
 
@@ -13,19 +11,19 @@ class Point:
 def draw_rectangle(x, y, width, height, color, opacity, batch):
     rectangle = shapes.Rectangle(x, y, width, height, color=color, batch=batch)
     rectangle.opacity = opacity
-    rectangle.draw()
+    return rectangle
 
 
 def draw_triangle(x1, y1, x2, y2, x3, y3, color, opacity, batch):
-    rectangle = shapes.Triangle(x1, y1, x2, y2, x3, y3, color=color, batch=batch)
-    rectangle.opacity = opacity
-    rectangle.draw()
+    triangle = shapes.Triangle(x1, y1, x2, y2, x3, y3, color=color, batch=batch)
+    triangle.opacity = opacity
+    return triangle
 
 
 def draw_line(x1, y1, x2, y2, color, width, opacity, batch):
     line = shapes.Line(x1, y1, x2, y2, color=color, batch=batch, width=width)
     line.opacity = opacity
-    line.draw()
+    return line
 
 
 class AnimatedButton:
@@ -89,25 +87,25 @@ class AnimatedButton:
     def draw(self):
         background_color = self.background_color
         if self.current_state == AnimatedButton.states[0]:
-            elevation_rectangle = shapes.Rectangle(round(self.center_x - self.width / 2),
-                                                   round(self.center_y - self.height / 2),
-                                                   self.width, self.elevation + self.border_radius,
-                                                   color=self.elevation_color,
-                                                   batch=self.batch)
-            elevation_rectangle.draw()
-            rectangle = shapes.Rectangle(round(self.center_x - self.width / 2),
-                                         round(self.center_y - self.height / 2 + self.elevation),
-                                         self.width, self.height, color=background_color,
-                                         batch=self.batch)
-            rectangle.draw()
+            elevation_rectangle = draw_rectangle(round(self.center_x - self.width / 2),
+                                                 round(self.center_y - self.height / 2),
+                                                 self.width, self.elevation + self.border_radius,
+                                                 color=self.elevation_color,
+                                                 opacity=255,
+                                                 batch=self.batch)
+            rectangle = draw_rectangle(round(self.center_x - self.width / 2),
+                                       round(self.center_y - self.height / 2 + self.elevation),
+                                       self.width, self.height,
+                                       color=background_color,
+                                       opacity=255,
+                                       batch=self.batch)
             self.text_label.y = self.center_y + self.elevation
-            self.text_label.draw()
+            return [elevation_rectangle, rectangle], self.text_label
         else:
             background_color = self.background_color_pressed
-            rectangle = shapes.Rectangle(
+            rectangle = draw_rectangle(
                 round(self.center_x - self.width / 2),
                 round(self.center_y - self.height / 2),
-                self.width, self.height, color=background_color, batch=self.batch)
-            rectangle.draw()
+                self.width, self.height, color=background_color, opacity=255, batch=self.batch)
             self.text_label.y = self.center_y
-            self.text_label.draw()
+            return [rectangle], self.text_label
