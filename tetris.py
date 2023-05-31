@@ -98,6 +98,15 @@ class TetrisGame:
             TetrisGame.pieces[i].move_down()
 
     @staticmethod
+    def check_user_pieces_down():
+        for i in range(len(TetrisGame.pieces)):
+            if TetrisGame.pieces[i].is_piece_of_user:
+                if TetrisGame.pieces[i].min_y > 0:
+                    if not TetrisGame.pieces[i].check_move_down():
+                        return False
+        return True
+
+    @staticmethod
     def force_down(window):
         while TetrisGame.is_game_running:
             piece = TetrisGame.next_pieces[0]
@@ -289,6 +298,23 @@ class Piece:
             if round(node.y) >= TetrisGame.rows:
                 continue
             TetrisGame.grid[round(node.y)][round(node.x)] = index_of_piece
+        return True
+
+    def check_move_down(self):
+        if self.above_ground or (not self.is_active):
+            return False
+
+        for node in self.nodes_centers:
+            if round(node.y) >= TetrisGame.rows:
+                continue
+            if round(node.y) < 1:
+                return False  # unable to move down
+
+            index_of_piece_down = TetrisGame.grid[round(node.y - 1)][round(node.x)]
+            if index_of_piece_down != -1:
+                piece_down = TetrisGame.pieces[index_of_piece_down]
+                if piece_down != self and not piece_down.check_move_down():
+                    return False  # unable to move down
         return True
 
     def move_on_x_axis(self, step):

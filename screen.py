@@ -17,6 +17,8 @@ class MyWindow(pyglet.window.Window):
         self.was_direction_0 = True
         self.direction_x_step = 0
         self.iteration = 0
+        self.extra_frames_help = 2
+        self.i = 0
 
         self.main_batch = pyglet.graphics.Batch()
         self.base_batch = pyglet.graphics.Batch()
@@ -143,10 +145,17 @@ class MyWindow(pyglet.window.Window):
             if not self.was_direction_0:
                 TetrisGame.move_x_steps(self.direction_x_step)
         self.was_direction_0 = self.direction_x_step == 0
-        if self.iteration % 4 == 2 and self.is_fast_mode:
-            TetrisGame.move_down_user_pieces()
-        if self.iteration % 4 == 0:
-            TetrisGame.render(self)
+        if TetrisGame.check_user_pieces_down() or self.i > self.extra_frames_help:
+            if self.iteration % 4 == 2 and self.is_fast_mode:
+                TetrisGame.move_down_user_pieces()
+            if self.iteration % 4 == 0:
+                TetrisGame.render(self)
+            self.i = 0
+        else:
+            self.i += 1
+            if self.is_fast_mode:
+                self.i += 1
+
         self.iteration += 1
         self.iteration %= 4
 
