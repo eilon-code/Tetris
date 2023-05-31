@@ -237,6 +237,8 @@ class Piece:
         self.center_y = center_y
         self.min_y = 0
         self.max_y = TetrisGame.rows
+        self.min_x = 0
+        self.max_x = TetrisGame.columns
 
         self.nodes = nodes
         self.angle = angle
@@ -250,6 +252,8 @@ class Piece:
     def update(self):
         self.min_y = TetrisGame.rows
         self.max_y = -1
+        self.min_x = TetrisGame.columns
+        self.max_x = -1
         for i in range(len(self.nodes_centers))[::-1]:
             self.nodes_centers.pop(i)
         for node in self.nodes:
@@ -263,6 +267,10 @@ class Piece:
                 self.min_y = round(self.center_y + node_center_y)
             if round(self.center_y + node_center_y) > self.max_y:
                 self.max_y = round(self.center_y + node_center_y)
+            if round(self.center_x + node_center_x) < self.min_x:
+                self.min_x = round(self.center_x + node_center_x)
+            if round(self.center_x + node_center_x) > self.max_x:
+                self.max_x = round(self.center_x + node_center_x)
 
     def move_down(self):
         if self.moved_down or self.above_ground or (not self.is_active):
@@ -352,17 +360,26 @@ class Piece:
                 self.angle -= 90
             self.update()
 
-            for node in self.nodes_centers:
-                if round(node.y) < 0 or round(node.x) < 0 or round(node.x) >= TetrisGame.columns:
-                    self.angle = previous_angle
-                    self.update()
-                    return False    # illegal move
+            if self.min_y < 0:
+                self.angle = previous_angle
+                self.update()
+                return False  # illegal move
 
+            x_offset = 0
+            if self.max_x > TetrisGame.columns - 1:
+                x_offset = TetrisGame.columns - 1 - self.max_x
+            if self.min_x < 0:
+                x_offset = 0 - self.min_x
+
+            for node in self.nodes_centers:
                 if round(node.y) >= TetrisGame.rows:
                     continue
-
-                if TetrisGame.grid[round(node.y)][round(node.x)] != -1:
-                    if TetrisGame.pieces[TetrisGame.grid[round(node.y)][round(node.x)]] != self:
+                if not 0 <= round(node.x + x_offset) < TetrisGame.columns:
+                    self.angle = previous_angle
+                    self.update()
+                    return False  # illegal move
+                if TetrisGame.grid[round(node.y)][round(node.x + x_offset)] != -1:
+                    if TetrisGame.pieces[TetrisGame.grid[round(node.y)][round(node.x + x_offset)]] != self:
                         self.angle = previous_angle
                         self.update()
                         return False  # illegal move
@@ -375,6 +392,7 @@ class Piece:
                     continue
                 TetrisGame.grid[round(node.y)][round(node.x)] = -1
             self.angle, previous_angle = previous_angle, self.angle
+            self.center_x += x_offset
             self.update()
             for node in self.nodes_centers:
                 if round(node.y) >= TetrisGame.rows:
