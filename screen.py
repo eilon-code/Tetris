@@ -58,9 +58,9 @@ class MyWindow(pyglet.window.Window):
             self.direction_x_step = 1
             TetrisGame.move_x_steps(self.direction_x_step)
         elif symbol == pyglet.window.key.UP:
-            TetrisGame.rotate_piece_90(True)
-        elif symbol == pyglet.window.key.Z:
             TetrisGame.rotate_piece_90(False)
+        elif symbol == pyglet.window.key.Z:
+            TetrisGame.rotate_piece_90(True)
         elif symbol == pyglet.window.key.SPACE:
             TetrisGame.force_down(self)
         elif symbol == pyglet.window.key.TAB:
