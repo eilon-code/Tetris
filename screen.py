@@ -20,8 +20,8 @@ class MyWindow(pyglet.window.Window):
         self.extra_frames_help = 2
         self.i = 0
 
-        self.main_batch = pyglet.graphics.Batch()
-        self.base_batch = pyglet.graphics.Batch()
+        self.batch = pyglet.graphics.Batch()
+        self.grid_cells = []
 
         background_color = [150, 150, 150, 255]
         background_color = [i / 255 for i in background_color]
@@ -29,7 +29,7 @@ class MyWindow(pyglet.window.Window):
         TetrisGame.initialize()
 
         self.defeat_button = \
-            utils.AnimatedButton(self.main_batch,
+            utils.AnimatedButton(self.batch,
                                  self.width // 2, self.height // 2 - self.cell_size * 6.5,
                                  self.cell_size * 6, self.cell_size * 2, self.cell_size * 0.2,
                                  "Decline >",
@@ -37,7 +37,7 @@ class MyWindow(pyglet.window.Window):
                                  (40, 40, 40, 200),
                                  font_name='Arial', font_size=18, border_radius=4)
         self.award_button = \
-            utils.AnimatedButton(self.main_batch,
+            utils.AnimatedButton(self.batch,
                                  self.width // 2, self.height // 2 - self.cell_size * 6.5,
                                  self.cell_size * 6, self.cell_size * 2, self.cell_size * 0.2,
                                  "Accept :)",
@@ -48,7 +48,7 @@ class MyWindow(pyglet.window.Window):
         self.elements_to_draw = []
         self.texts_to_draw = []
 
-        self.draw_grid()
+        self.add_grid_to_batch()
 
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.LEFT:
@@ -115,8 +115,9 @@ class MyWindow(pyglet.window.Window):
                 self.draw_award()
 
         message_time = time.time()
-        self.base_batch.draw()
-        self.main_batch.draw()
+        self.batch.draw()
+
+        self.clear_grid()
         batch_time = time.time()
 
         while len(self.texts_to_draw) > 0:
@@ -174,7 +175,7 @@ class MyWindow(pyglet.window.Window):
         cursor = default_cursor
         self.set_mouse_cursor(cursor)
 
-    def draw_grid(self):
+    def add_grid_to_batch(self):
         x_center = self.width / 2
         y_center = self.height / 2
 
@@ -185,18 +186,25 @@ class MyWindow(pyglet.window.Window):
         y_end = round(y_center + (TetrisGame.rows / 2) * self.cell_size)
 
         for x in range(x_start, x_end + 1, self.cell_size):
-            self.base_elements_to_draw.append(utils.draw_line(x, y_start, x, y_end, (0, 0, 0), 2, 255, self.base_batch))
+            self.base_elements_to_draw.append(utils.draw_line(x, y_start, x, y_end, (0, 0, 0), 2, 255, self.batch))
 
         for y in range(y_start, y_end + 1, self.cell_size):
-            self.base_elements_to_draw.append(utils.draw_line(x_start, y, x_end, y, (0, 0, 0), 2, 255, self.base_batch))
+            self.base_elements_to_draw.append(utils.draw_line(x_start, y, x_end, y, (0, 0, 0), 2, 255, self.batch))
+
+        for row in range(TetrisGame.rows):
+            for col in range(TetrisGame.columns):
+                self.grid_cells.append([])
+                self.draw_piece_rectangle(
+                    round(x_start + col * self.cell_size),
+                    round(y_start + row * self.cell_size), (255, 255, 255), self.cell_size, self.grid_cells[-1])
+
+        for cell in self.grid_cells:
+            for shape in cell:
+                shape.opacity = 0
 
     def draw_pieces_to_grid(self):
-        x_center = self.width / 2
-        y_center = self.height / 2
-        x_start = round(x_center - (TetrisGame.columns / 2) * self.cell_size)
-        y_start = round(y_center - (TetrisGame.rows / 2) * self.cell_size)
         for piece in TetrisGame.pieces:
-            self.draw_tetris_piece(piece, x_start, y_start, self.cell_size)
+            self.draw_tetris_piece_to_grid(piece, opacity=255)
 
     def draw_score(self):
         self.texts_to_draw.append(pyglet.text.Label(f"Score: {TetrisGame.score}",
@@ -220,7 +228,7 @@ class MyWindow(pyglet.window.Window):
         self.elements_to_draw.append(utils.draw_rectangle(
             start_x, start_y,
             self.cell_size * 6, -self.cell_size * 2 - self.outer_cell_size * TetrisGame.next_reveals * 3,
-            (230, 230, 230), 255, self.main_batch))
+            (230, 230, 230), 255, self.batch))
         self.texts_to_draw.append(pyglet.text.Label(f"Next Pieces:", font_name='David', font_size=20,
                                                     x=start_x + round(self.cell_size * 3),
                                                     y=start_y - self.cell_size // 4,
@@ -231,7 +239,7 @@ class MyWindow(pyglet.window.Window):
             self.draw_tetris_piece(piece_to_draw,
                                    start_x + self.cell_size * 2.25,
                                    start_y - (self.cell_size + self.outer_cell_size) * 2 - self.outer_cell_size * 3 * i,
-                                   self.outer_cell_size, True)
+                                   self.outer_cell_size)
 
     def draw_hold_piece(self):
         start_x = self.width // 2 - self.cell_size * (TetrisGame.columns // 2 + 7)
@@ -240,7 +248,7 @@ class MyWindow(pyglet.window.Window):
         self.elements_to_draw.append(
             utils.draw_rectangle(start_x, start_y, self.cell_size * 6, -self.cell_size * 2 - self.outer_cell_size * 3,
                                  (230, 230, 230), 255,
-                                 self.main_batch))
+                                 self.batch))
         self.texts_to_draw.append(pyglet.text.Label(f"Hold Piece:", font_name='David', font_size=20,
                                                     x=start_x + round(self.cell_size * 3),
                                                     y=start_y - self.cell_size // 4,
@@ -250,7 +258,7 @@ class MyWindow(pyglet.window.Window):
             self.draw_tetris_piece(TetrisGame.hold_piece,
                                    start_x + self.cell_size * 2.25,
                                    start_y - (self.cell_size + self.outer_cell_size) * 2,
-                                   self.outer_cell_size, True)
+                                   self.outer_cell_size)
 
     def draw_defeat(self):
         start_x = self.width // 2 - self.cell_size * (TetrisGame.columns // 2 + 6)
@@ -258,7 +266,7 @@ class MyWindow(pyglet.window.Window):
 
         self.elements_to_draw.append(utils.draw_rectangle(start_x, start_y,
                                                           self.cell_size * (TetrisGame.columns + 12),
-                                                          -self.cell_size * 16, (100, 100, 200), 200, self.main_batch))
+                                                          -self.cell_size * 16, (100, 100, 200), 200, self.batch))
 
         self.texts_to_draw.append(pyglet.text.Label(f"Dear looser, you lost.",
                                                     font_name='David', font_size=24,
@@ -301,7 +309,7 @@ class MyWindow(pyglet.window.Window):
 
         self.elements_to_draw.append(utils.draw_rectangle(start_x, start_y,
                                                           self.cell_size * (TetrisGame.columns + 12),
-                                                          -self.cell_size * 16, (150, 200, 200), 200, self.main_batch))
+                                                          -self.cell_size * 16, (150, 200, 200), 200, self.batch))
 
         self.texts_to_draw.append(pyglet.text.Label(f"Lucky bastard!, a new high score.",
                                                     font_name='David', font_size=24,
@@ -338,94 +346,106 @@ class MyWindow(pyglet.window.Window):
             self.elements_to_draw.append(elem)
         self.texts_to_draw.append(label)
 
-    def draw_tetris_piece(self, piece, x, y, cell_size, ignore_center=False):
-        if ignore_center:
-            y_min = 0
-            for node in piece.nodes:
-                y_min = min(node.y, y_min)
-            for node in piece.nodes:
-                # self.elements_to_draw.append(utils.draw_rectangle(
-                #     round(x + node.x * cell_size),
-                #     round(y + (node.y - y_min) * cell_size),
-                #     cell_size, cell_size, piece.color, 255, self.main_batch))
-                self.draw_piece_rectangle(
-                    round(x + node.x * cell_size),
-                    round(y + (node.y - y_min) * cell_size),
-                    piece.color, cell_size)
-        else:
-            for node in piece.nodes_centers:
-                if round(node.y) < TetrisGame.rows or (not piece.is_active):
-                    if not ignore_center:
-                        self.elements_to_draw.append(utils.draw_rectangle(
-                            x + round(node.x) * cell_size, y + round(node.y) * cell_size,
-                            cell_size, cell_size, piece.color, 255, self.main_batch))
-                        # self.draw_piece_rectangle(
-                        #     x + round(node.x) * cell_size,
-                        #     y + round(node.y) * cell_size,
-                        #     piece.color, cell_size)
+    def draw_tetris_piece(self, piece, x, y, cell_size):
+        y_min = 0
+        for node in piece.nodes:
+            y_min = min(node.y, y_min)
+        for node in piece.nodes:
+            # self.elements_to_draw.append(utils.draw_rectangle(
+            #     round(x + node.x * cell_size),
+            #     round(y + (node.y - y_min) * cell_size),
+            #     cell_size, cell_size, piece.color, 255, self.main_batch))
+            self.draw_piece_rectangle(
+                round(x + node.x * cell_size),
+                round(y + (node.y - y_min) * cell_size),
+                piece.color, cell_size, self.elements_to_draw)
 
-    def draw_piece_rectangle(self, x, y, color, cell_size):
+    def draw_piece_rectangle(self, x, y, color, cell_size, array):
         edges = 0.12 * cell_size
 
         bright = [round(0.6 * i + 0.4 * 255) for i in color]
         light_dark = [round(0.9 * i + 0.1 * 0) for i in color]
         dark = [round(0.7 * i + 0.3 * 0) for i in color]
 
-        self.elements_to_draw.append(utils.draw_rectangle(
+        array.append(utils.draw_rectangle(
             round(x + edges), round(y + cell_size - edges),
-            round(cell_size - 2 * edges), round(edges), bright, 255, self.main_batch))
-        self.elements_to_draw.append(utils.draw_triangle(
+            round(cell_size - 2 * edges), round(edges), bright, 255, self.batch))
+        array.append(utils.draw_triangle(
             round(x), round(y + cell_size),
             round(x + edges), round(y + cell_size),
             round(x + edges), round(y + cell_size - edges),
-            bright, 255, self.main_batch))
-        self.elements_to_draw.append(utils.draw_triangle(
+            bright, 255, self.batch))
+        array.append(utils.draw_triangle(
             round(x + cell_size), round(y + cell_size),
             round(x + cell_size - edges), round(y + cell_size),
             round(x + cell_size - edges), round(y + cell_size - edges),
-            bright, 255, self.main_batch))
+            bright, 255, self.batch))
 
-        self.elements_to_draw.append(utils.draw_rectangle(
+        array.append(utils.draw_rectangle(
             round(x + edges), round(y),
-            round(cell_size - 2 * edges), round(edges), dark, 255, self.main_batch))
-        self.elements_to_draw.append(utils.draw_triangle(
+            round(cell_size - 2 * edges), round(edges), dark, 255, self.batch))
+        array.append(utils.draw_triangle(
             round(x), round(y),
             round(x + edges), round(y),
-            round(x + edges), round(y + edges), dark, 255, self.main_batch))
-        self.elements_to_draw.append(utils.draw_triangle(
+            round(x + edges), round(y + edges), dark, 255, self.batch))
+        array.append(utils.draw_triangle(
             round(x + cell_size - edges), round(y),
             round(x + cell_size), round(y),
             round(x + cell_size - edges), round(y + edges),
-            dark, 255, self.main_batch))
+            dark, 255, self.batch))
 
-        self.elements_to_draw.append(utils.draw_rectangle(
+        array.append(utils.draw_rectangle(
             round(x), round(y + edges),
-            round(edges), round(cell_size - 2 * edges), light_dark, 255, self.main_batch))
-        self.elements_to_draw.append(utils.draw_triangle(
+            round(edges), round(cell_size - 2 * edges), light_dark, 255, self.batch))
+        array.append(utils.draw_triangle(
             round(x), round(y),
             round(x), round(y + edges),
             round(x + edges), round(y + edges),
-            light_dark, 255, self.main_batch))
-        self.elements_to_draw.append(utils.draw_triangle(
+            light_dark, 255, self.batch))
+        array.append(utils.draw_triangle(
             round(x), round(y + cell_size),
             round(x), round(y + cell_size - edges),
             round(x + edges), round(y + cell_size - edges),
-            light_dark, 255, self.main_batch))
+            light_dark, 255, self.batch))
 
-        self.elements_to_draw.append(utils.draw_rectangle(
+        array.append(utils.draw_rectangle(
             round(x + cell_size - edges), round(y + edges),
-            round(edges), round(cell_size - 2 * edges), light_dark, 255, self.main_batch))
-        self.elements_to_draw.append(utils.draw_triangle(
+            round(edges), round(cell_size - 2 * edges), light_dark, 255, self.batch))
+        array.append(utils.draw_triangle(
             round(x + cell_size), round(y),
             round(x + cell_size), round(y + edges),
             round(x + cell_size - edges), round(y + edges),
-            light_dark, 255, self.main_batch))
-        self.elements_to_draw.append(utils.draw_triangle(
+            light_dark, 255, self.batch))
+        array.append(utils.draw_triangle(
             round(x + cell_size), round(y + cell_size),
             round(x + cell_size), round(y + cell_size - edges),
             round(x + cell_size - edges), round(y + cell_size - edges),
-            light_dark, 255, self.main_batch))
+            light_dark, 255, self.batch))
 
-        self.elements_to_draw.append(utils.draw_rectangle(
+        array.append(utils.draw_rectangle(
             round(x + edges), round(y + edges),
-            round(cell_size - 2 * edges), round(cell_size - 2 * edges), color, 255, self.main_batch))
+            round(cell_size - 2 * edges), round(cell_size - 2 * edges), color, 255, self.batch))
+
+    def draw_tetris_piece_to_grid(self, piece, opacity):
+        for node in piece.nodes_centers:
+            if round(node.y) < TetrisGame.rows or (not piece.is_active):
+                cell = self.grid_cells[round(node.y)*TetrisGame.columns + round(node.x)]
+                bright = [round(0.6 * i + 0.4 * 255) for i in piece.color]
+                light_dark = [round(0.9 * i + 0.1 * 0) for i in piece.color]
+                dark = [round(0.7 * i + 0.3 * 0) for i in piece.color]
+
+                for i in range(len(cell)):
+                    cell[i].opacity = opacity
+                    if i < 3:
+                        cell[i].color = bright
+                    elif i < 6:
+                        cell[i].color = dark
+                    elif i < 12:
+                        cell[i].color = light_dark
+                    else:
+                        cell[i].color = piece.color
+
+    def clear_grid(self):
+        for cell in self.grid_cells:
+            for shape in cell:
+                shape.opacity = 0
