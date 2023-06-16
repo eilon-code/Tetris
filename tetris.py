@@ -42,8 +42,9 @@ class TetrisGame:
     def render(window=None):
         start_time = time.time()
         if not TetrisGame.is_game_running:
-            return
-        TetrisGame.pop_full_rows()
+            return False
+        if TetrisGame.pop_full_rows():
+            return True
         TetrisGame.move_all_down()
         some_piece_of_user = False
         for piece in TetrisGame.pieces:
@@ -69,6 +70,8 @@ class TetrisGame:
         total_time = end_time - start_time
         if total_time > 1 / 120.0:
             print(f"Render Over-run: {total_time}")
+
+        return False
 
     @staticmethod
     def rotate_piece_90(clockwise):
@@ -103,8 +106,8 @@ class TetrisGame:
             if TetrisGame.pieces[i].is_piece_of_user:
                 if TetrisGame.pieces[i].min_y > 0:
                     if not TetrisGame.pieces[i].check_move_down():
-                        return False
-        return True
+                        return True
+        return False
 
     @staticmethod
     def force_down(window):
@@ -130,8 +133,8 @@ class TetrisGame:
                 rows_to_pop.append(i)
 
         if len(rows_to_pop) > 0:
-            for i in range(len(TetrisGame.pieces)):
-                for row in rows_to_pop:
+            for row in rows_to_pop:
+                for i in range(len(TetrisGame.pieces)):
                     TetrisGame.pieces[i].split_in_popped_row(row)
 
             for i in range(len(TetrisGame.pieces))[::-1]:
@@ -145,7 +148,7 @@ class TetrisGame:
                                 TetrisGame.grid[row][column] -= 1
 
             for i in range(len(TetrisGame.pieces)):
-                if TetrisGame.pieces[i].above_ground and TetrisGame.pieces[i].min_y > min(rows_to_pop):
+                if TetrisGame.pieces[i].above_ground and TetrisGame.pieces[i].min_y >= min(rows_to_pop):
                     TetrisGame.pieces[i].above_ground = False
 
             for i in rows_to_pop:
@@ -160,16 +163,18 @@ class TetrisGame:
                 TetrisGame.score += 300
             else:
                 TetrisGame.score += 1200
+            return True
+        return False
 
     @staticmethod
-    def add_piece(piece=None):
+    def add_piece(piece=None, index_to_insert=-1):
         while len(TetrisGame.next_pieces) < TetrisGame.next_reveals:
             TetrisGame.generate_next_piece()
 
         TetrisGame.generate_next_piece(piece)
         next_piece = TetrisGame.next_pieces.pop(0)
         next_piece.is_active = True
-        TetrisGame.pieces.append(next_piece)
+        TetrisGame.pieces.insert(index_to_insert, next_piece)
 
     @staticmethod
     def generate_next_piece(piece=None):
@@ -183,6 +188,9 @@ class TetrisGame:
             if index == 0 or index == 3:
                 piece.center_x += 0.5
                 piece.center_y += 0.5
+        else:
+            piece.angle = angle
+            piece.update()
 
         min_x = TetrisGame.columns - 1
         max_x = 0
@@ -222,7 +230,7 @@ class TetrisGame:
                     TetrisGame.grid[row][column] = -1
 
         piece_to_hold = TetrisGame.pieces.pop(index_to_switch)
-        TetrisGame.add_piece(TetrisGame.hold_piece)
+        TetrisGame.add_piece(TetrisGame.hold_piece, index_to_switch)
         TetrisGame.hold_piece = None
         TetrisGame.hold_piece = piece_to_hold
 
@@ -407,23 +415,20 @@ class Piece:
         if row < self.min_y or row > self.max_y:
             pass    # row is not related to piece
         split_nodes = []
-        removed_nodes = []
-        for i in range(len(self.nodes_centers)):
+        for i in range(len(self.nodes_centers))[::-1]:
             if round(self.nodes_centers[i].y) < row:
-                split_nodes.append(i)
+                split_nodes.append(self.nodes[i])
+                self.nodes.pop(i)
             elif round(self.nodes_centers[i].y) == row:
-                removed_nodes.append(i)
+                self.nodes.pop(i)
 
-        split_piece = Piece(self.center_x, self.center_y, self.color,
-                            [self.nodes[i] for i in split_nodes], self.angle, self.is_active)
+        split_piece = Piece(self.center_x, self.center_y, self.color, split_nodes, self.angle, self.is_active)
         split_piece.is_piece_of_user = False
 
-        for i in split_nodes:
-            TetrisGame.grid[round(self.nodes_centers[i].y)][round(self.nodes_centers[i].x)] = len(TetrisGame.pieces) - 1
-        for i in sorted(removed_nodes + split_nodes)[::-1]:
-            self.nodes.pop(i)
+        for node in split_piece.nodes_centers:
+            TetrisGame.grid[round(node.y)][round(node.x)] = len(TetrisGame.pieces) - 1
+
         self.update()
-        self.above_ground = False
 
 
 class LinePiece(Piece):

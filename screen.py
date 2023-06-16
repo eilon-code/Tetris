@@ -159,7 +159,7 @@ class MyWindow(pyglet.window.Window):
             if not self.was_direction_0:
                 TetrisGame.move_x_steps(self.direction_x_step)
         self.was_direction_0 = self.direction_x_step == 0
-        if TetrisGame.check_user_pieces_down() or self.i > self.extra_frames_help:
+        if self.i >= self.extra_frames_help or not TetrisGame.check_user_pieces_down():
             if self.iteration % 4 == 0 or self.i > self.extra_frames_help:
                 TetrisGame.render(self)
                 self.iteration = 0
