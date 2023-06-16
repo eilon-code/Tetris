@@ -147,13 +147,13 @@ class TetrisGame:
                             if TetrisGame.grid[row][column] > i:
                                 TetrisGame.grid[row][column] -= 1
 
-            for i in range(len(TetrisGame.pieces)):
-                if TetrisGame.pieces[i].above_ground and TetrisGame.pieces[i].min_y >= min(rows_to_pop):
-                    TetrisGame.pieces[i].above_ground = False
+            for piece in TetrisGame.pieces:
+                if piece.min_y > min(rows_to_pop):
+                    piece.above_ground = False
 
-            for i in rows_to_pop:
-                for j in range(TetrisGame.columns):
-                    TetrisGame.grid[i][j] = -1
+            for row in rows_to_pop:
+                for column in range(TetrisGame.columns):
+                    TetrisGame.grid[row][column] = -1
 
             if len(rows_to_pop) == 1:
                 TetrisGame.score += 40
@@ -412,7 +412,7 @@ class Piece:
         return False
 
     def split_in_popped_row(self, row):
-        if row < self.min_y or row > self.max_y:
+        if self.min_y > row or row > self.max_y:
             pass    # row is not related to piece
         split_nodes = []
         for i in range(len(self.nodes_centers))[::-1]:
