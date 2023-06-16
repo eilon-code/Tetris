@@ -228,6 +228,8 @@ class TetrisGame:
 
 
 class Piece:
+    nodes_num = 4
+
     def __init__(self, center_x, center_y, color, nodes, angle, is_active):
         self.color = color
         self.is_piece_of_user = True
