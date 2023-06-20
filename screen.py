@@ -111,6 +111,7 @@ class MyWindow(pyglet.window.Window):
         self.update_score()
         grid_time = time.time()
 
+        self.draw_tetris_piece_to_grid(self.tetris_game.get_drop_mark(), opacity=100)
         # self.draw_pieces_to_grid()
         self.draw_tetris_grid_pieces()
         grid_pieces_time = time.time()
@@ -420,23 +421,24 @@ class MyWindow(pyglet.window.Window):
             round(cell_size - 2 * edges), round(cell_size - 2 * edges), color, 255, self.batch))
 
     def draw_tetris_piece_to_grid(self, piece, opacity):
-        for node in piece.nodes:
-            if round(node.y) < self.tetris_game.rows:
-                cell = self.grid_cells[round(node.y) * self.tetris_game.columns + round(node.x)]
-                bright = [round(0.6 * i + 0.4 * 255) for i in piece.color]
-                light_dark = [round(0.9 * i + 0.1 * 0) for i in piece.color]
-                dark = [round(0.7 * i + 0.3 * 0) for i in piece.color]
+        if piece is not None:
+            for node in piece.nodes:
+                if round(node.y) < self.tetris_game.rows:
+                    cell = self.grid_cells[round(node.y) * self.tetris_game.columns + round(node.x)]
+                    bright = [round(0.6 * i + 0.4 * 255) for i in piece.color]
+                    light_dark = [round(0.9 * i + 0.1 * 0) for i in piece.color]
+                    dark = [round(0.7 * i + 0.3 * 0) for i in piece.color]
 
-                for i in range(len(cell)):
-                    cell[i].opacity = opacity
-                    if i < 3:
-                        cell[i].color = bright
-                    elif i < 6:
-                        cell[i].color = dark
-                    elif i < 12:
-                        cell[i].color = light_dark
-                    else:
-                        cell[i].color = piece.color
+                    for i in range(len(cell)):
+                        cell[i].opacity = opacity
+                        if i < 3:
+                            cell[i].color = bright
+                        elif i < 6:
+                            cell[i].color = dark
+                        elif i < 12:
+                            cell[i].color = light_dark
+                        else:
+                            cell[i].color = piece.color
 
     def draw_tetris_grid_pieces(self, opacity=255):
         for row in range(self.tetris_game.rows):

@@ -56,7 +56,7 @@ class TetrisGame:
             self.user_piece = None
 
     def move_down_user_piece(self):
-        if self.user_piece is not None and not self.user_piece.check_above_block(self):
+        if self.user_piece is not None and self.user_piece.count_moves_down(self) > 0:
             self.user_piece.move_down(self, False)
 
     def check_user_piece_down(self):
@@ -64,7 +64,7 @@ class TetrisGame:
 
     def force_down(self):
         if self.user_piece is not None:
-            while not self.user_piece.check_above_block(self):
+            while self.user_piece.count_moves_down(self) > 0:
                 self.move_down_user_piece()
 
     def pop_full_rows(self):
@@ -187,6 +187,16 @@ class TetrisGame:
 
         return False
 
+    def get_drop_mark(self):
+        if self.user_piece is None:
+            return None
+        return Piece(
+            self.user_piece.color,
+            Point(self.user_piece.center.x, self.user_piece.center.y - self.user_piece.count_moves_down(self)),
+            self.user_piece.relative_nodes,
+            self.user_piece.angle
+        )
+
 
 class Piece:
     nodes_num = 4
@@ -282,17 +292,17 @@ class Piece:
                     return False  # unable to move down
         return True
 
-    def check_above_block(self, game):
+    def count_moves_down(self, game):
+        moves_to_block = game.rows
         for node in self.nodes:
-            if round(node.y) >= game.rows:
-                continue
-            if round(node.y) <= 0:
-                return True  # unable to move down
-
-            piece_down = game.grid[round(node.y - 1)][round(node.x)]
-            if piece_down is not None and piece_down != self:
-                return True
-        return False
+            steps = 1
+            while round(node.y) - steps >= 0:
+                piece_down = game.grid[min(round(node.y) - steps, game.rows-1)][round(node.x)]
+                if piece_down is not None and piece_down != self:
+                    break
+                steps += 1
+            moves_to_block = min(moves_to_block, steps - 1)
+        return moves_to_block
 
     def move_on_x_axis(self, game, step):
         for node in self.nodes:
