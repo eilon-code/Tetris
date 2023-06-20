@@ -82,8 +82,6 @@ class TetrisGame:
                 rows_to_pop.append(row)
 
         if len(rows_to_pop) > 0:
-            print(f"Pop rows: {rows_to_pop}")
-            print(f"len(Pieces)= {len(self.grid_pieces)}")
             split_pieces = []
             for row in rows_to_pop:
                 for piece in self.grid_pieces:
@@ -96,9 +94,7 @@ class TetrisGame:
             for split_piece in split_pieces:
                 self.grid_pieces.append(split_piece)
                 for node in split_piece.nodes:
-                    self.grid[round(node.x)][round(node.y)] = split_piece
-
-            print("split- done")
+                    self.grid[round(node.y)][round(node.x)] = split_piece
 
             empty_pieces = []
             for piece in self.grid_pieces:
@@ -155,7 +151,8 @@ class TetrisGame:
 
     def switch_hold(self):
         for node in self.user_piece.nodes:
-            self.grid[round(node.y)][round(node.x)] = None
+            if round(node.y) < self.rows:
+                self.grid[round(node.y)][round(node.x)] = None
 
         piece_to_hold = self.user_piece
         self.grid_pieces.remove(piece_to_hold)
@@ -185,7 +182,7 @@ class TetrisGame:
 
         end_time = time.time()
         total_time = end_time - start_time
-        if total_time > 1 / 120.0:
+        if total_time > 1 / 200.0:
             print(f"Render Over-run: {total_time}")
 
         return False
