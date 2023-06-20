@@ -12,7 +12,9 @@ class MyWindow(pyglet.window.Window):
         super().__init__(*args, **kwargs)
         self.cell_size = 24
         self.outer_cell_size = 24
-        self.is_game_running = True
+        self.tetris_game = TetrisGame(columns=10, rows=20, next_pieces_reveals=5)
+        self.tetris_game.initialize()
+
         self.is_fast_mode = False
         self.was_direction_0 = True
         self.direction_x_step = 0
@@ -56,23 +58,22 @@ class MyWindow(pyglet.window.Window):
         background_color = [150, 150, 150, 255]
         background_color = [i / 255 for i in background_color]
         glClearColor(*background_color)
-        TetrisGame.initialize()
 
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.LEFT:
             self.direction_x_step = -1
-            TetrisGame.move_x_steps(self.direction_x_step)
+            self.tetris_game.move_piece_x_steps(self.direction_x_step)
         elif symbol == pyglet.window.key.RIGHT:
             self.direction_x_step = 1
-            TetrisGame.move_x_steps(self.direction_x_step)
+            self.tetris_game.move_piece_x_steps(self.direction_x_step)
         elif symbol == pyglet.window.key.UP:
-            TetrisGame.rotate_piece_90(False)
+            self.tetris_game.rotate_piece_90(False)
         elif symbol == pyglet.window.key.Z:
-            TetrisGame.rotate_piece_90(True)
+            self.tetris_game.rotate_piece_90(True)
         elif symbol == pyglet.window.key.SPACE:
-            TetrisGame.force_down(self)
+            self.tetris_game.force_down()
         elif symbol == pyglet.window.key.TAB:
-            TetrisGame.switch_hold()
+            self.tetris_game.switch_hold()
         elif symbol == pyglet.window.key.DOWN:
             self.is_fast_mode = True
             pass
@@ -88,11 +89,10 @@ class MyWindow(pyglet.window.Window):
             self.direction_x_step = 0
 
     def on_mouse_release(self, x, y, button, modifiers):
-        if (self.defeat_button.release() or self.award_button.release()) and not self.is_game_running:
+        if (self.defeat_button.release() or self.award_button.release()) and self.tetris_game.has_game_ended:
             self.clear_grid()
             self.clear_outer_pieces()
-            TetrisGame.initialize()
-            self.is_game_running = True
+            self.tetris_game.initialize()
 
     def on_mouse_press(self, x, y, button, modifiers):
         self.defeat_button.click(x, y)
@@ -111,15 +111,16 @@ class MyWindow(pyglet.window.Window):
         self.update_score()
         grid_time = time.time()
 
-        self.draw_pieces_to_grid()
+        # self.draw_pieces_to_grid()
+        self.draw_tetris_grid_pieces()
         grid_pieces_time = time.time()
 
         self.draw_next_pieces()
         self.draw_hold_piece()
         out_pieces_time = time.time()
 
-        if not self.is_game_running:
-            if TetrisGame.score <= TetrisGame.best_score:
+        if self.tetris_game.has_game_ended:
+            if self.tetris_game.score <= self.tetris_game.best_score:
                 self.draw_defeat()
             else:
                 self.draw_award()
@@ -157,14 +158,14 @@ class MyWindow(pyglet.window.Window):
     def update(self, dt):
         if self.direction_x_step != 0:
             if not self.was_direction_0:
-                TetrisGame.move_x_steps(self.direction_x_step)
+                self.tetris_game.move_piece_x_steps(self.direction_x_step)
         self.was_direction_0 = self.direction_x_step == 0
-        if self.i >= self.extra_frames_help or not TetrisGame.check_user_pieces_down():
+        if self.i >= self.extra_frames_help or not self.tetris_game.check_user_piece_down():
             if self.iteration % 4 == 0 or self.i > self.extra_frames_help:
-                TetrisGame.render(self)
+                self.tetris_game.render()
                 self.iteration = 0
             if self.iteration % 4 == 2 and self.is_fast_mode:
-                TetrisGame.move_down_user_pieces()
+                self.tetris_game.move_down_user_piece()
 
             self.i = 0
         else:
@@ -192,11 +193,11 @@ class MyWindow(pyglet.window.Window):
         x_center = self.width / 2
         y_center = self.height / 2
 
-        x_start = round(x_center - (TetrisGame.columns / 2) * self.cell_size)
-        x_end = round(x_center + (TetrisGame.columns / 2) * self.cell_size)
+        x_start = round(x_center - (self.tetris_game.columns / 2) * self.cell_size)
+        x_end = round(x_center + (self.tetris_game.columns / 2) * self.cell_size)
 
-        y_start = round(y_center - (TetrisGame.rows / 2) * self.cell_size)
-        y_end = round(y_center + (TetrisGame.rows / 2) * self.cell_size)
+        y_start = round(y_center - (self.tetris_game.rows / 2) * self.cell_size)
+        y_end = round(y_center + (self.tetris_game.rows / 2) * self.cell_size)
 
         for x in range(x_start, x_end + 1, self.cell_size):
             self.grid_lines.append(utils.draw_line(x, y_start, x, y_end, (0, 0, 0), 2, 255, self.batch))
@@ -204,27 +205,27 @@ class MyWindow(pyglet.window.Window):
         for y in range(y_start, y_end + 1, self.cell_size):
             self.grid_lines.append(utils.draw_line(x_start, y, x_end, y, (0, 0, 0), 2, 255, self.batch))
 
-        for row in range(TetrisGame.rows):
-            for col in range(TetrisGame.columns):
+        for row in range(self.tetris_game.rows):
+            for col in range(self.tetris_game.columns):
                 self.grid_cells.append([])
                 self.add_piece_rectangle_to_batch(
                     round(x_start + col * self.cell_size),
                     round(y_start + row * self.cell_size), (255, 255, 255), self.cell_size, self.grid_cells[-1])
 
     def draw_pieces_to_grid(self):
-        for piece in TetrisGame.pieces:
+        for piece in self.tetris_game.grid_pieces:
             self.draw_tetris_piece_to_grid(piece, opacity=255)
 
     def update_score(self):
-        self.extra_graphics_texts['score'].text = f"Score: {TetrisGame.score}"
-        self.extra_graphics_texts['best_score'].text = f"Best Score: {TetrisGame.best_score}"
+        self.extra_graphics_texts['score'].text = f"Score: {self.tetris_game.score}"
+        self.extra_graphics_texts['best_score'].text = f"Best Score: {self.tetris_game.best_score}"
 
     def draw_next_pieces(self):
-        start_x = self.width // 2 + self.cell_size * (TetrisGame.columns // 2 + 1)
-        start_y = self.height // 2 + self.cell_size * (TetrisGame.rows // 2)
+        start_x = self.width // 2 + self.cell_size * (self.tetris_game.columns // 2 + 1)
+        start_y = self.height // 2 + self.cell_size * (self.tetris_game.rows // 2)
 
-        for i in range(len(TetrisGame.next_pieces)):
-            piece_to_draw = TetrisGame.next_pieces[i]
+        for i in range(min(self.tetris_game.next_pieces_reveals, len(self.tetris_game.next_pieces))):
+            piece_to_draw = self.tetris_game.next_pieces[i]
             self.draw_outer_tetris_piece(piece_to_draw, i,
                                          start_x + self.cell_size * 2.25,
                                          start_y -
@@ -232,20 +233,20 @@ class MyWindow(pyglet.window.Window):
                                          )
 
     def draw_hold_piece(self):
-        start_x = self.width // 2 - self.cell_size * (TetrisGame.columns // 2 + 7)
-        start_y = self.height // 2 + self.cell_size * (TetrisGame.rows // 2)
+        start_x = self.width // 2 - self.cell_size * (self.tetris_game.columns // 2 + 7)
+        start_y = self.height // 2 + self.cell_size * (self.tetris_game.rows // 2)
 
-        if TetrisGame.hold_piece is not None:
-            self.draw_outer_tetris_piece(TetrisGame.hold_piece, -1,
+        if self.tetris_game.hold_piece is not None:
+            self.draw_outer_tetris_piece(self.tetris_game.hold_piece, -1,
                                          start_x + self.cell_size * 2.25,
                                          start_y - (self.cell_size + self.outer_cell_size) * 2)
 
     def draw_defeat(self):
-        start_x = self.width // 2 - self.cell_size * (TetrisGame.columns // 2 + 6)
-        start_y = self.height // 2 + self.cell_size * (TetrisGame.rows // 2 - 2)
+        start_x = self.width // 2 - self.cell_size * (self.tetris_game.columns // 2 + 6)
+        start_y = self.height // 2 + self.cell_size * (self.tetris_game.rows // 2 - 2)
 
         self.elements_to_draw.append(utils.draw_rectangle(start_x, start_y,
-                                                          self.cell_size * (TetrisGame.columns + 12),
+                                                          self.cell_size * (self.tetris_game.columns + 12),
                                                           -self.cell_size * 16, (100, 100, 200), 200, self.batch))
 
         self.texts_to_draw.append(pyglet.text.Label(f"Dear looser, you lost.",
@@ -284,11 +285,11 @@ class MyWindow(pyglet.window.Window):
         self.texts_to_draw.append(label)
 
     def draw_award(self):
-        start_x = self.width // 2 - self.cell_size * (TetrisGame.columns // 2 + 6)
-        start_y = self.height // 2 + self.cell_size * (TetrisGame.rows // 2 - 2)
+        start_x = self.width // 2 - self.cell_size * (self.tetris_game.columns // 2 + 6)
+        start_y = self.height // 2 + self.cell_size * (self.tetris_game.rows // 2 - 2)
 
         self.elements_to_draw.append(utils.draw_rectangle(start_x, start_y,
-                                                          self.cell_size * (TetrisGame.columns + 12),
+                                                          self.cell_size * (self.tetris_game.columns + 12),
                                                           -self.cell_size * 16, (150, 200, 200), 200, self.batch))
 
         self.texts_to_draw.append(pyglet.text.Label(f"Lucky bastard!, a new high score.",
@@ -328,9 +329,9 @@ class MyWindow(pyglet.window.Window):
 
     def draw_outer_tetris_piece(self, piece, piece_index, x, y):
         y_min = 0
-        for node in piece.nodes:
+        for node in piece.relative_nodes:
             y_min = min(node.y, y_min)
-        for node_index in range(len(piece.nodes)):
+        for node_index in range(len(piece.relative_nodes)):
             bright = [round(0.6 * i + 0.4 * 255) for i in piece.color]
             light_dark = [round(0.9 * i + 0.1 * 0) for i in piece.color]
             dark = [round(0.7 * i + 0.3 * 0) for i in piece.color]
@@ -339,8 +340,8 @@ class MyWindow(pyglet.window.Window):
             for i in range(len(graphics_node)):
                 graphics_node[i].anchor_position =\
                     (
-                        -round(x + piece.nodes[node_index].x * self.outer_cell_size),
-                        -round(y + (piece.nodes[node_index].y - y_min) * self.outer_cell_size)
+                        -round(x + piece.relative_nodes[node_index].x * self.outer_cell_size),
+                        -round(y + (piece.relative_nodes[node_index].y - y_min) * self.outer_cell_size)
                     )
                 graphics_node[i].opacity = 255
                 if i < 3:
@@ -419,9 +420,9 @@ class MyWindow(pyglet.window.Window):
             round(cell_size - 2 * edges), round(cell_size - 2 * edges), color, 255, self.batch))
 
     def draw_tetris_piece_to_grid(self, piece, opacity):
-        for node in piece.nodes_centers:
-            if round(node.y) < TetrisGame.rows or (not piece.is_active):
-                cell = self.grid_cells[round(node.y) * TetrisGame.columns + round(node.x)]
+        for node in piece.nodes:
+            if round(node.y) < self.tetris_game.rows:
+                cell = self.grid_cells[round(node.y) * self.tetris_game.columns + round(node.x)]
                 bright = [round(0.6 * i + 0.4 * 255) for i in piece.color]
                 light_dark = [round(0.9 * i + 0.1 * 0) for i in piece.color]
                 dark = [round(0.7 * i + 0.3 * 0) for i in piece.color]
@@ -437,18 +438,39 @@ class MyWindow(pyglet.window.Window):
                     else:
                         cell[i].color = piece.color
 
+    def draw_tetris_grid_pieces(self, opacity=255):
+        for row in range(self.tetris_game.rows):
+            for column in range(self.tetris_game.columns):
+                if self.tetris_game.grid[row][column] is not None:
+                    node_color = self.tetris_game.grid[row][column].color
+                    cell = self.grid_cells[row * self.tetris_game.columns + column]
+                    bright = [round(0.6 * i + 0.4 * 255) for i in node_color]
+                    light_dark = [round(0.9 * i + 0.1 * 0) for i in node_color]
+                    dark = [round(0.7 * i + 0.3 * 0) for i in node_color]
+
+                    for i in range(len(cell)):
+                        cell[i].opacity = opacity
+                        if i < 3:
+                            cell[i].color = bright
+                        elif i < 6:
+                            cell[i].color = dark
+                        elif i < 12:
+                            cell[i].color = light_dark
+                        else:
+                            cell[i].color = node_color
+
     def clear_grid(self):
         for cell in self.grid_cells:
             for shape in cell:
                 shape.opacity = 0
 
     def add_extra_graphics(self):
-        start_x = self.width // 2 + round(self.cell_size * (TetrisGame.columns / 2 + 1))
-        start_y = self.height // 2 + round(self.cell_size * (TetrisGame.rows / 2))
+        start_x = self.width // 2 + round(self.cell_size * (self.tetris_game.columns / 2 + 1))
+        start_y = self.height // 2 + round(self.cell_size * (self.tetris_game.rows / 2))
 
         self.extra_graphics.append(utils.draw_rectangle(
             start_x, start_y,
-            self.cell_size * 6, -self.cell_size * 2 - self.outer_cell_size * TetrisGame.next_reveals * 3,
+            self.cell_size * 6, -self.cell_size * 2 - self.outer_cell_size * self.tetris_game.next_pieces_reveals * 3,
             (230, 230, 230), 255, self.batch))
         self.extra_graphics_texts['next'] = pyglet.text.Label(f"Next Pieces:", font_name='David', font_size=20,
                                                               x=start_x + round(self.cell_size * 3),
@@ -456,34 +478,34 @@ class MyWindow(pyglet.window.Window):
                                                               anchor_x='center', anchor_y='top', color=(0, 0, 0, 255))
 
         self.extra_graphics.append(
-            utils.draw_rectangle(start_x - round(self.cell_size * (TetrisGame.columns + 8)), start_y,
+            utils.draw_rectangle(start_x - round(self.cell_size * (self.tetris_game.columns + 8)), start_y,
                                  self.cell_size * 6,
                                  -self.cell_size * 2 - self.outer_cell_size * 3,
                                  (230, 230, 230), 255,
                                  self.batch))
         self.extra_graphics_texts['hold'] = pyglet.text.Label(f"Hold Piece:", font_name='David', font_size=20,
                                                               x=round(
-                                                                  start_x - self.cell_size * (TetrisGame.columns + 5)),
+                                                                  start_x - self.cell_size * (self.tetris_game.columns + 5)),
                                                               y=round(start_y - self.cell_size / 4),
                                                               anchor_x='center', anchor_y='top', color=(0, 0, 0, 255))
 
-        self.extra_graphics_texts['score'] = pyglet.text.Label(f"Score: {TetrisGame.score}",
+        self.extra_graphics_texts['score'] = pyglet.text.Label(f"Score: {self.tetris_game.score}",
                                                                font_name='Times New Roman',
                                                                font_size=36,
                                                                x=self.width // 2,
                                                                y=self.height // 2 + self.cell_size * (
-                                                                       TetrisGame.rows // 2 + 3),
+                                                                       self.tetris_game.rows // 2 + 3),
                                                                anchor_x='center', anchor_y='center')
-        self.extra_graphics_texts['best_score'] = pyglet.text.Label(f"Best Score: {TetrisGame.best_score}",
+        self.extra_graphics_texts['best_score'] = pyglet.text.Label(f"Best Score: {self.tetris_game.best_score}",
                                                                     font_name='Times New Roman',
                                                                     font_size=18,
                                                                     x=self.width // 2,
                                                                     y=self.height // 2 + round(
-                                                                        self.cell_size * (TetrisGame.rows // 2 + 1)),
+                                                                        self.cell_size * (self.tetris_game.rows // 2 + 1)),
                                                                     anchor_x='center', anchor_y='center')
 
     def add_outer_pieces_to_batch(self):
-        for i in range(TetrisGame.next_reveals + 1):
+        for i in range(self.tetris_game.next_pieces_reveals + 1):
             self.outer_pieces_graphics.append([])
             for j in range(Piece.nodes_num):
                 self.outer_pieces_graphics[-1].append([])

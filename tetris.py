@@ -6,65 +6,182 @@ from utils import Point
 
 
 class TetrisGame:
-    hold_piece = None
-    columns = 10
-    rows = 20
-    score = 0
-    best_score = -1
-    pieces = []
-    next_reveals = 5
-    next_pieces = []
-    grid = []
-    is_game_running = False
+    def __init__(self, columns, rows, next_pieces_reveals):
+        self.columns = columns
+        self.rows = rows
+        self.next_pieces_reveals = next_pieces_reveals
+        self.has_game_ended = False
+        self.score = 0
+        self.best_score = -1
 
-    @staticmethod
-    def initialize():
-        TetrisGame.best_score = max(TetrisGame.best_score, TetrisGame.score)
-        TetrisGame.score = 0
-        TetrisGame.is_game_running = True
-        TetrisGame.hold_piece = None
-        for i in range(len(TetrisGame.pieces))[::-1]:
-            TetrisGame.pieces.pop(i)
-        for i in range(len(TetrisGame.next_pieces))[::-1]:
-            TetrisGame.next_pieces.pop(i)
+        self.user_piece = None
+        self.hold_piece = None
+        self.next_pieces = []
 
-        for row in range(len(TetrisGame.grid))[::-1]:
-            for column in range(TetrisGame.columns)[::-1]:
-                TetrisGame.grid[row].pop(column)
-            TetrisGame.grid.pop(row)
+        self.grid = [[None for _ in range(self.columns)] for _ in range(self.rows)]
+        self.grid_pieces = []
 
-        for row in range(TetrisGame.rows):
-            TetrisGame.grid.append([])
-            for column in range(TetrisGame.columns):
-                TetrisGame.grid[row].append(-1)
+    def initialize(self):
+        self.best_score = max(self.best_score, self.score)
+        self.has_game_ended = False
+        self.score = 0
+        self.user_piece = None
+        self.hold_piece = None
 
-    @staticmethod
-    def render(window=None):
-        start_time = time.time()
-        if not TetrisGame.is_game_running:
-            return False
-        if TetrisGame.pop_full_rows():
+        while len(self.next_pieces) > 0:
+            self.next_pieces.pop(0)
+
+        for row in range(self.rows):
+            for column in range(self.columns):
+                self.grid[row][column] = None
+
+        while len(self.grid_pieces) > 0:
+            self.grid_pieces.pop(0)
+
+    def rotate_piece_90(self, clockwise):
+        self.user_piece.rotate_90_degrees(self, clockwise)
+
+    def move_piece_x_steps(self, x):
+        self.user_piece.move_on_x_axis(self, x)
+
+    def move_all_down(self):
+        for piece in self.grid_pieces:
+            piece.called_move_down = False
+
+        for piece in self.grid_pieces:
+            if not piece.called_move_down:
+                piece.move_down(self)
+
+        if self.user_piece is not None and self.user_piece.above_ground:
+            self.user_piece = None
+
+    def move_down_user_piece(self):
+        if self.user_piece is not None and not self.user_piece.check_above_block(self):
+            self.user_piece.move_down(self, False)
+
+    def check_user_piece_down(self):
+        return self.user_piece is None or not self.user_piece.check_move_down(self)
+
+    def force_down(self):
+        if self.user_piece is not None:
+            while not self.user_piece.check_above_block(self):
+                self.move_down_user_piece()
+
+    def pop_full_rows(self):
+        rows_to_pop = []
+        for row in range(self.rows):
+            if None in self.grid[row]:
+                continue
+
+            pop = True
+            for column in range(self.columns):
+                if not self.grid[row][column].above_ground:
+                    pop = False
+
+            if pop:
+                rows_to_pop.append(row)
+
+        if len(rows_to_pop) > 0:
+            print(f"Pop rows: {rows_to_pop}")
+            print(f"len(Pieces)= {len(self.grid_pieces)}")
+            split_pieces = []
+            for row in rows_to_pop:
+                for piece in self.grid_pieces:
+                    split_piece = piece.split_in_popped_row(row)
+                    piece.update_nodes()
+                    if split_piece is not None:
+                        split_pieces.append(split_piece)
+                for column in range(self.columns):
+                    self.grid[row][column] = None
+            for split_piece in split_pieces:
+                self.grid_pieces.append(split_piece)
+                for node in split_piece.nodes:
+                    self.grid[round(node.x)][round(node.y)] = split_piece
+
+            print("split- done")
+
+            empty_pieces = []
+            for piece in self.grid_pieces:
+                if len(piece.nodes) == 0:
+                    empty_pieces.append(piece)
+            for piece in empty_pieces:
+                self.grid_pieces.remove(piece)
+
+            for piece in self.grid_pieces:
+                if piece.min_y > min(rows_to_pop):
+                    piece.above_ground = False
+
+            if len(rows_to_pop) == 1:
+                self.score += 40
+            elif len(rows_to_pop) == 2:
+                self.score += 100
+            elif len(rows_to_pop) == 3:
+                self.score += 300
+            else:
+                self.score += 1200
             return True
-        TetrisGame.move_all_down()
-        some_piece_of_user = False
-        for piece in TetrisGame.pieces:
-            if piece.is_piece_of_user:
-                some_piece_of_user = True
+        return False
 
-        if not some_piece_of_user:
+    def add_piece(self, piece=None):
+        while len(self.next_pieces) <= self.next_pieces_reveals:
+            self.next_pieces.append(TetrisGame.generate_piece(self))
+
+        next_piece = self.next_pieces.pop(0) if piece is None else TetrisGame.generate_piece(self, piece)
+        self.grid_pieces.append(next_piece)
+        self.user_piece = next_piece
+
+    @staticmethod
+    def generate_piece(game, piece=None):
+        angle = 0  # random.randint(0, 3) * 90
+
+        if piece is None:
+            tetris_pieces_types = [LinePiece, LBlock, ReverseLBlock, Square, Squiggly, ReverseSquiggly, TBlock]
+            index = random.randint(0, len(tetris_pieces_types) - 1)
+            piece = tetris_pieces_types[index](Point(game.columns // 2, game.rows), angle)
+            if piece.is_center_half_shifted:
+                piece.center.x += 0.5
+                piece.center.y += 0.5
+        else:
+            piece.angle = angle
+        piece.update_nodes()
+
+        piece.center.y += game.rows - piece.min_y
+        width = piece.max_x - piece.min_x + 1
+        shift = (game.columns - width) // 2  # random.randint(0, TetrisGame.columns - 1 - width)
+        piece.center.x += shift - piece.min_x
+        piece.update_nodes()
+
+        return piece
+
+    def switch_hold(self):
+        for node in self.user_piece.nodes:
+            self.grid[round(node.y)][round(node.x)] = None
+
+        piece_to_hold = self.user_piece
+        self.grid_pieces.remove(piece_to_hold)
+        self.add_piece(self.hold_piece)
+        self.hold_piece = None
+        self.hold_piece = piece_to_hold
+
+    def render(self):
+        start_time = time.time()
+        if self.has_game_ended:
+            return False
+        self.pop_full_rows()
+        self.move_all_down()
+
+        if self.user_piece is None:
             game_ended = False
-            for piece in TetrisGame.pieces:
+            for piece in self.grid_pieces:
                 if game_ended:
                     continue
-                for node in piece.nodes_centers:
-                    if round(node.y) >= TetrisGame.rows - 1:
+                for node in piece.nodes:
+                    if round(node.y) >= self.rows - 1:
                         game_ended = True
             if not game_ended:
-                TetrisGame.add_piece()
+                self.add_piece()
             else:
-                TetrisGame.is_game_running = False
-                if window is not None:
-                    window.is_game_running = False
+                self.has_game_ended = True
 
         end_time = time.time()
         total_time = end_time - start_time
@@ -73,408 +190,242 @@ class TetrisGame:
 
         return False
 
-    @staticmethod
-    def rotate_piece_90(clockwise):
-        for i in range(len(TetrisGame.pieces)):
-            TetrisGame.pieces[i].rotate_90_degrees(clockwise)
-
-    @staticmethod
-    def move_x_steps(x):
-        for i in range(len(TetrisGame.pieces)):
-            TetrisGame.pieces[i].move_on_x_axis(x)
-
-    @staticmethod
-    def move_all_down():
-        for i in range(len(TetrisGame.pieces)):
-            TetrisGame.pieces[i].moved_down = False
-
-        for i in range(len(TetrisGame.pieces)):
-            TetrisGame.pieces[i].move_down()
-
-    @staticmethod
-    def move_down_user_pieces():
-        for i in range(len(TetrisGame.pieces)):
-            if TetrisGame.pieces[i].is_piece_of_user:
-                TetrisGame.pieces[i].moved_down = False
-
-        for i in range(len(TetrisGame.pieces)):
-            TetrisGame.pieces[i].move_down()
-
-    @staticmethod
-    def check_user_pieces_down():
-        for i in range(len(TetrisGame.pieces)):
-            if TetrisGame.pieces[i].is_piece_of_user:
-                if TetrisGame.pieces[i].min_y > 0:
-                    if not TetrisGame.pieces[i].check_move_down():
-                        return True
-        return False
-
-    @staticmethod
-    def force_down(window):
-        while TetrisGame.is_game_running:
-            piece = TetrisGame.next_pieces[0]
-            TetrisGame.render(window)
-            if piece != TetrisGame.next_pieces[0]:
-                break
-
-    @staticmethod
-    def pop_full_rows():
-        rows_to_pop = []
-        for i in range(TetrisGame.rows):
-            if -1 in TetrisGame.grid[i]:
-                continue
-
-            row_i_to_pop = True
-            for j in range(TetrisGame.columns):
-                if not TetrisGame.pieces[TetrisGame.grid[i][j]].above_ground:
-                    row_i_to_pop = False
-
-            if row_i_to_pop:
-                rows_to_pop.append(i)
-
-        if len(rows_to_pop) > 0:
-            for row in rows_to_pop:
-                for i in range(len(TetrisGame.pieces)):
-                    TetrisGame.pieces[i].split_in_popped_row(row)
-
-            for i in range(len(TetrisGame.pieces))[::-1]:
-                if len(TetrisGame.pieces[i].nodes) == 0:
-                    TetrisGame.pieces.pop(i)
-                    if i == len(TetrisGame.pieces):
-                        continue
-                    for row in range(TetrisGame.rows):
-                        for column in range(TetrisGame.columns):
-                            if TetrisGame.grid[row][column] > i:
-                                TetrisGame.grid[row][column] -= 1
-
-            for piece in TetrisGame.pieces:
-                if piece.min_y > min(rows_to_pop):
-                    piece.above_ground = False
-
-            for row in rows_to_pop:
-                for column in range(TetrisGame.columns):
-                    TetrisGame.grid[row][column] = -1
-
-            if len(rows_to_pop) == 1:
-                TetrisGame.score += 40
-            elif len(rows_to_pop) == 2:
-                TetrisGame.score += 100
-            elif len(rows_to_pop) == 3:
-                TetrisGame.score += 300
-            else:
-                TetrisGame.score += 1200
-            return True
-        return False
-
-    @staticmethod
-    def add_piece(piece=None, index_to_insert=-1):
-        while len(TetrisGame.next_pieces) < TetrisGame.next_reveals:
-            TetrisGame.generate_next_piece()
-
-        TetrisGame.generate_next_piece(piece)
-        next_piece = TetrisGame.next_pieces.pop(0)
-        next_piece.is_active = True
-        TetrisGame.pieces.insert(index_to_insert, next_piece)
-
-    @staticmethod
-    def generate_next_piece(piece=None):
-        angle = 0   # random.randint(0, 3) * 90
-        hold_piece = piece is not None
-
-        if piece is None:
-            tetris_pieces_types = [LinePiece, LBlock, ReverseLBlock, Square, Squiggly, ReverseSquiggly, TBlock]
-            index = random.randint(0, len(tetris_pieces_types) - 1)
-            piece = tetris_pieces_types[index](TetrisGame.columns // 2, TetrisGame.rows, angle, False)
-            if index == 0 or index == 3:
-                piece.center_x += 0.5
-                piece.center_y += 0.5
-        else:
-            piece.angle = angle
-            piece.update()
-
-        min_x = TetrisGame.columns - 1
-        max_x = 0
-        min_y = TetrisGame.rows
-
-        for node in piece.nodes_centers:
-            if round(node.x) > max_x:
-                max_x = round(node.x)
-            if round(node.x) < min_x:
-                min_x = round(node.x)
-            if round(node.y) < min_y:
-                min_y = round(node.y)
-
-        piece.center_y += TetrisGame.rows - min_y
-        width = max_x - min_x + 1
-        shift = (TetrisGame.columns-width) // 2     # random.randint(0, TetrisGame.columns - 1 - width)
-        piece.center_x += shift - min_x
-        piece.update()
-
-        if hold_piece:
-            TetrisGame.next_pieces.insert(0, piece)
-        else:
-            TetrisGame.next_pieces.append(piece)
-
-    @staticmethod
-    def switch_hold():
-        index_to_switch = -1
-        for i in range(len(TetrisGame.pieces)):
-            if index_to_switch != -1:
-                continue
-            if TetrisGame.pieces[i].is_piece_of_user:
-                index_to_switch = i
-
-        for row in range(TetrisGame.rows):
-            for column in range(TetrisGame.columns):
-                if TetrisGame.grid[row][column] == index_to_switch:
-                    TetrisGame.grid[row][column] = -1
-
-        piece_to_hold = TetrisGame.pieces.pop(index_to_switch)
-        TetrisGame.add_piece(TetrisGame.hold_piece, index_to_switch)
-        TetrisGame.hold_piece = None
-        TetrisGame.hold_piece = piece_to_hold
-
 
 class Piece:
     nodes_num = 4
 
-    def __init__(self, center_x, center_y, color, nodes, angle, is_active):
+    def __init__(self, color, center, relative_nodes, angle, is_center_half_shifted=False):
         self.color = color
-        self.is_piece_of_user = True
-        self.above_ground = False
-        self.moved_down = False
-        self.center_x = center_x
-        self.center_y = center_y
-        self.min_y = 0
-        self.max_y = TetrisGame.rows
-        self.min_x = 0
-        self.max_x = TetrisGame.columns
-
-        self.nodes = nodes
+        self.center = center
+        self.relative_nodes = relative_nodes
         self.angle = angle
-        self.nodes_centers = []
-        self.is_active = is_active
+        self.is_center_half_shifted = is_center_half_shifted
 
-        self.update()
-        if self.is_active:
-            TetrisGame.pieces.append(self)
+        self.above_ground = False
 
-    def update(self):
-        self.min_y = TetrisGame.rows
-        self.max_y = -1
-        self.min_x = TetrisGame.columns
-        self.max_x = -1
-        for i in range(len(self.nodes_centers))[::-1]:
-            self.nodes_centers.pop(i)
+        self.nodes = []
+        self.min_y = None
+        self.max_y = None
+        self.min_x = None
+        self.max_x = None
+        self.update_nodes()
+
+        self.called_move_down = False
+
+    def update_nodes(self):
+        self.min_y = None
+        self.max_y = None
+        self.min_x = None
+        self.max_x = None
+        while len(self.nodes) > 0:
+            self.nodes.pop(0)
+        if not len(self.relative_nodes) > 0:
+            pass
+        for relative_node in self.relative_nodes:
+            radius = math.sqrt(relative_node.x ** 2 + relative_node.y ** 2)
+            theta = math.atan2(relative_node.y, relative_node.x)
+
+            node_relative_to_grid = Point(
+                x=self.center.x + radius * math.cos(math.radians(self.angle) + theta),
+                y=self.center.y + radius * math.sin(math.radians(self.angle) + theta)
+            )
+            self.nodes.append(node_relative_to_grid)
+
         for node in self.nodes:
-            radius = math.sqrt(node.x ** 2 + node.y ** 2)
-            theta = math.atan2(node.y, node.x)
+            self.min_y = round(node.y) if self.min_y is None else min(round(node.y), self.min_y)
+            self.max_y = round(node.y) if self.max_y is None else max(round(node.y), self.max_y)
+            self.min_x = round(node.x) if self.min_x is None else min(round(node.x), self.min_x)
+            self.max_x = round(node.x) if self.max_x is None else max(round(node.x), self.max_x)
 
-            node_center_x = radius * math.cos(math.radians(self.angle) + theta)
-            node_center_y = radius * math.sin(math.radians(self.angle) + theta)
-            self.nodes_centers.append(Point(self.center_x + node_center_x, self.center_y + node_center_y))
-            if round(self.center_y + node_center_y) < self.min_y:
-                self.min_y = round(self.center_y + node_center_y)
-            if round(self.center_y + node_center_y) > self.max_y:
-                self.max_y = round(self.center_y + node_center_y)
-            if round(self.center_x + node_center_x) < self.min_x:
-                self.min_x = round(self.center_x + node_center_x)
-            if round(self.center_x + node_center_x) > self.max_x:
-                self.max_x = round(self.center_x + node_center_x)
-
-    def move_down(self):
-        if self.moved_down or self.above_ground or (not self.is_active):
+    def move_down(self, game, call=True):
+        self.called_move_down = call if call else self.called_move_down
+        if self.above_ground:
             return False
-        self.moved_down = True
 
-        for node in self.nodes_centers:
-            if round(node.y) >= TetrisGame.rows:
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
                 continue
-            if round(node.y) < 1:
+            if round(node.y) <= 0:
                 self.above_ground = True
-                if self.is_piece_of_user:
-                    self.is_piece_of_user = False
                 return False  # unable to move down
 
-            index_of_piece_down = TetrisGame.grid[round(node.y - 1)][round(node.x)]
-            if index_of_piece_down != -1:
-                piece_down = TetrisGame.pieces[index_of_piece_down]
-                if piece_down != self and not piece_down.move_down():
+            piece_down = game.grid[round(node.y - 1)][round(node.x)]
+            if piece_down is not None and piece_down != self:
+                if not piece_down.move_down(game):
                     self.above_ground = True
-                    if self.is_piece_of_user:
-                        self.is_piece_of_user = False
                     return False  # unable to move down
 
-        index_of_piece = TetrisGame.pieces.index(self)
-        for node in self.nodes_centers:
-            if round(node.y) >= TetrisGame.rows:
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
                 continue
-            TetrisGame.grid[round(node.y)][round(node.x)] = -1
-        self.center_y -= 1
-        self.update()
-        for node in self.nodes_centers:
-            if round(node.y) >= TetrisGame.rows:
+            game.grid[round(node.y)][round(node.x)] = None
+
+        self.center.y -= 1
+        self.update_nodes()
+
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
                 continue
-            TetrisGame.grid[round(node.y)][round(node.x)] = index_of_piece
+            game.grid[round(node.y)][round(node.x)] = self
         return True
 
-    def check_move_down(self):
-        if self.above_ground or (not self.is_active):
+    def check_move_down(self, game):
+        if self.above_ground:
             return False
 
-        for node in self.nodes_centers:
-            if round(node.y) >= TetrisGame.rows:
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
                 continue
-            if round(node.y) < 1:
+            if round(node.y) <= 0:
                 return False  # unable to move down
 
-            index_of_piece_down = TetrisGame.grid[round(node.y - 1)][round(node.x)]
-            if index_of_piece_down != -1:
-                piece_down = TetrisGame.pieces[index_of_piece_down]
-                if piece_down != self and not piece_down.check_move_down():
+            piece_down = game.grid[round(node.y - 1)][round(node.x)]
+            if piece_down is not None and piece_down != self:
+                if not piece_down.check_move_down(game):
                     return False  # unable to move down
         return True
 
-    def move_on_x_axis(self, step):
-        if self.is_active and self.is_piece_of_user:
-            for node in self.nodes_centers:
-                if round(node.x) + step < 0 or round(node.x) + step >= TetrisGame.columns:
-                    return False  # illegal move
+    def check_above_block(self, game):
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
+                continue
+            if round(node.y) <= 0:
+                return True  # unable to move down
 
-                if round(node.y) < TetrisGame.rows:
-                    if TetrisGame.grid[round(node.y)][round(node.x + step)] != -1:
-                        if TetrisGame.pieces[TetrisGame.grid[round(node.y)][round(node.x + step)]] != self:
-                            return False  # illegal move
-
-            index_of_piece = TetrisGame.pieces.index(self)
-            for node in self.nodes_centers:
-                if round(node.y) >= TetrisGame.rows:
-                    continue
-                TetrisGame.grid[round(node.y)][round(node.x)] = -1
-            self.center_x += step
-            self.update()
-            for node in self.nodes_centers:
-                if round(node.y) >= TetrisGame.rows:
-                    continue
-                TetrisGame.grid[round(node.y)][round(node.x)] = index_of_piece
-
-            return True
+            piece_down = game.grid[round(node.y - 1)][round(node.x)]
+            if piece_down is not None and piece_down != self:
+                return True
         return False
 
-    def rotate_90_degrees(self, clockwise):
-        if self.is_active and self.is_piece_of_user:
-            previous_angle = self.angle
-            if clockwise:
-                self.angle += 90
-            else:
-                self.angle -= 90
-            self.update()
-
-            if self.min_y < 0:
-                self.angle = previous_angle
-                self.update()
+    def move_on_x_axis(self, game, step):
+        for node in self.nodes:
+            if round(node.x) + step < 0 or round(node.x) + step >= game.columns:
                 return False  # illegal move
 
-            x_offset = 0
-            if self.max_x > TetrisGame.columns - 1:
-                x_offset = TetrisGame.columns - 1 - self.max_x
-            if self.min_x < 0:
-                x_offset = 0 - self.min_x
-
-            for node in self.nodes_centers:
-                if round(node.y) >= TetrisGame.rows:
-                    continue
-                if not 0 <= round(node.x + x_offset) < TetrisGame.columns:
-                    self.angle = previous_angle
-                    self.update()
+            if round(node.y) < game.rows:
+                other_piece = game.grid[round(node.y)][round(node.x + step)]
+                if other_piece is not None and other_piece != self:
                     return False  # illegal move
-                if TetrisGame.grid[round(node.y)][round(node.x + x_offset)] != -1:
-                    if TetrisGame.pieces[TetrisGame.grid[round(node.y)][round(node.x + x_offset)]] != self:
-                        self.angle = previous_angle
-                        self.update()
-                        return False  # illegal move
 
-            self.angle, previous_angle = previous_angle, self.angle
-            self.update()
-            index_of_piece = TetrisGame.pieces.index(self)
-            for node in self.nodes_centers:
-                if round(node.y) >= TetrisGame.rows:
-                    continue
-                TetrisGame.grid[round(node.y)][round(node.x)] = -1
-            self.angle, previous_angle = previous_angle, self.angle
-            self.center_x += x_offset
-            self.update()
-            for node in self.nodes_centers:
-                if round(node.y) >= TetrisGame.rows:
-                    continue
-                TetrisGame.grid[round(node.y)][round(node.x)] = index_of_piece
-            return True
-        return False
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
+                continue
+            game.grid[round(node.y)][round(node.x)] = None
+
+        self.center.x += step
+        self.update_nodes()
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
+                continue
+            game.grid[round(node.y)][round(node.x)] = self
+
+    def rotate_90_degrees(self, game, clockwise):
+        previous_angle = self.angle
+        if clockwise:
+            self.angle += 90
+        else:
+            self.angle -= 90
+        self.update_nodes()
+
+        if self.min_y < 0:
+            self.angle = previous_angle
+            self.update_nodes()
+            return False  # illegal move
+
+        x_offset = 0
+        if self.max_x > game.columns - 1:
+            x_offset = game.columns - 1 - self.max_x
+        if self.min_x < 0:
+            x_offset = 0 - self.min_x
+
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
+                continue
+            if not 0 <= round(node.x + x_offset) < game.columns:
+                self.angle = previous_angle
+                self.update_nodes()
+                return False  # illegal move
+            other_piece = game.grid[round(node.y)][round(node.x + x_offset)]
+            if other_piece is not None and other_piece != self:
+                self.angle = previous_angle
+                self.update_nodes()
+                return False  # illegal move
+
+        self.angle, previous_angle = previous_angle, self.angle
+        self.update_nodes()
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
+                continue
+            game.grid[round(node.y)][round(node.x)] = None
+        self.angle, previous_angle = previous_angle, self.angle
+        self.center.x += x_offset
+        self.update_nodes()
+        for node in self.nodes:
+            if round(node.y) >= game.rows:
+                continue
+            game.grid[round(node.y)][round(node.x)] = self
 
     def split_in_popped_row(self, row):
+        if not len(self.relative_nodes) > 0:
+            return None
         if self.min_y > row or row > self.max_y:
-            pass    # row is not related to piece
+            return None     # row is not related to piece
         split_nodes = []
-        for i in range(len(self.nodes_centers))[::-1]:
-            if round(self.nodes_centers[i].y) < row:
-                split_nodes.append(self.nodes[i])
-                self.nodes.pop(i)
-            elif round(self.nodes_centers[i].y) == row:
-                self.nodes.pop(i)
-
-        split_piece = Piece(self.center_x, self.center_y, self.color, split_nodes, self.angle, self.is_active)
-        split_piece.is_piece_of_user = False
-
-        for node in split_piece.nodes_centers:
-            TetrisGame.grid[round(node.y)][round(node.x)] = len(TetrisGame.pieces) - 1
-
-        self.update()
+        for i in range(len(self.nodes))[::-1]:
+            if round(self.nodes[i].y) <= row:
+                if round(self.nodes[i].y) < row:
+                    split_nodes.append(self.relative_nodes[i])
+                self.relative_nodes.pop(i)
+        if len(split_nodes) > 0:
+            split_piece = Piece(self.color, Point(self.center.x, self.center.y), split_nodes, self.angle)
+            return split_piece
+        return None
 
 
 class LinePiece(Piece):
-    def __init__(self, center_x, center_y, angle, is_active):
+    def __init__(self, center, angle):
         color = (51, 153, 255)
         nodes = [Point(1.5, 0.5), Point(0.5, 0.5), Point(-0.5, 0.5), Point(-1.5, 0.5)]
-        super().__init__(center_x, center_y, color, nodes, angle, is_active)
+        super().__init__(color, center, nodes, angle, is_center_half_shifted=True)
 
 
 class LBlock(Piece):
-    def __init__(self, center_x, center_y, angle, is_active):
+    def __init__(self, center, angle):
         color = (255, 128, 0)
         nodes = [Point(-1, 0), Point(0, 0), Point(1, 0), Point(1, 1)]
-        super().__init__(center_x, center_y, color, nodes, angle, is_active)
+        super().__init__(color, center, nodes, angle)
 
 
 class ReverseLBlock(Piece):
-    def __init__(self, center_x, center_y, angle, is_active):
+    def __init__(self, center, angle):
         color = (0, 0, 204)
         nodes = [Point(-1, 1), Point(-1, 0), Point(0, 0), Point(1, 0)]
-        super().__init__(center_x, center_y, color, nodes, angle, is_active)
+        super().__init__(color, center, nodes, angle)
 
 
 class Square(Piece):
-    def __init__(self, center_x, center_y, angle, is_active):
+    def __init__(self, center, angle):
         color = (238, 238, 7)
         nodes = [Point(0.5, 0.5), Point(0.5, -0.5), Point(-0.5, 0.5), Point(-0.5, -0.5)]
-        super().__init__(center_x, center_y, color, nodes, angle, is_active)
+        super().__init__(color, center, nodes, angle, is_center_half_shifted=True)
 
 
 class Squiggly(Piece):
-    def __init__(self, center_x, center_y, angle, is_active):
+    def __init__(self, center, angle):
         color = (255, 0, 0)
         nodes = [Point(-1, 1), Point(0, 1), Point(0, 0), Point(1, 0)]
-        super().__init__(center_x, center_y, color, nodes, angle, is_active)
+        super().__init__(color, center, nodes, angle)
 
 
 class ReverseSquiggly(Piece):
-    def __init__(self, center_x, center_y, angle, is_active):
+    def __init__(self, center, angle):
         color = (0, 204, 0)
         nodes = [Point(-1, 0), Point(0, 0), Point(0, 1), Point(1, 1)]
-        super().__init__(center_x, center_y, color, nodes, angle, is_active)
+        super().__init__(color, center, nodes, angle)
 
 
 class TBlock(Piece):
-    def __init__(self, center_x, center_y, angle, is_active):
+    def __init__(self, center, angle):
         color = (102, 0, 204)
         nodes = [Point(-1, 0), Point(0, 0), Point(0, 1), Point(1, 0)]
-        super().__init__(center_x, center_y, color, nodes, angle, is_active)
+        super().__init__(color, center, nodes, angle)
