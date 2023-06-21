@@ -464,7 +464,8 @@ class MyWindow(pyglet.window.Window):
     def clear_grid(self):
         for cell in self.grid_cells:
             for shape in cell:
-                shape.opacity = 0
+                shape.opacity = 255
+                shape.color = (0, 0, 0)
 
     def add_extra_graphics(self):
         start_x = self.width // 2 + round(self.cell_size * (self.tetris_game.columns / 2 + 1))
