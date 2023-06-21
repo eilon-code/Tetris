@@ -42,7 +42,8 @@ class TetrisGame:
         self.user_piece.rotate_90_degrees(self, clockwise)
 
     def move_piece_x_steps(self, x):
-        self.user_piece.move_on_x_axis(self, x)
+        if self.user_piece is not None:
+            self.user_piece.move_on_x_axis(self, x)
 
     def move_all_down(self):
         for piece in self.grid_pieces:
@@ -66,6 +67,8 @@ class TetrisGame:
         if self.user_piece is not None:
             while self.user_piece.count_moves_down(self) > 0:
                 self.move_down_user_piece()
+            self.user_piece = None
+        self.add_piece()
 
     def pop_full_rows(self):
         rows_to_pop = []
