@@ -64,18 +64,19 @@ class TetrisGame:
         return self.user_piece is None or not self.user_piece.check_move_down(self)
 
     def force_down(self):
-        game_ended = False
-        if self.user_piece is not None:
-            while self.user_piece.count_moves_down(self) > 0:
-                self.move_down_user_piece()
-            for node in self.user_piece.nodes:
-                if round(node.y) >= self.rows - 1:
-                    game_ended = True
-            self.user_piece = None
-        if not game_ended:
-            self.add_piece()
-        else:
-            self.has_game_ended = True
+        if not self.has_game_ended:
+            game_ended = False
+            if self.user_piece is not None:
+                while self.user_piece.count_moves_down(self) > 0:
+                    self.move_down_user_piece()
+                for node in self.user_piece.nodes:
+                    if round(node.y) >= self.rows - 1:
+                        game_ended = True
+                self.user_piece = None
+            if not game_ended:
+                self.add_piece()
+            else:
+                self.has_game_ended = True
 
     def pop_full_rows(self):
         rows_to_pop = []
@@ -305,8 +306,10 @@ class Piece:
         moves_to_block = game.rows
         for node in self.nodes:
             steps = 1
+            while round(node.y) - steps >= game.rows:
+                steps += 1
             while round(node.y) - steps >= 0:
-                piece_down = game.grid[min(round(node.y) - steps, game.rows-1)][round(node.x)]
+                piece_down = game.grid[round(node.y) - steps][round(node.x)]
                 if piece_down is not None and piece_down != self:
                     break
                 steps += 1
