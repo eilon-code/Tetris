@@ -61,7 +61,7 @@ class TetrisGame:
             self.user_piece.move_down(self, False)
 
     def check_user_piece_down(self):
-        return self.user_piece is None or not self.user_piece.check_move_down(self)
+        return self.user_piece is not None and self.user_piece.check_move_down(self)
 
     def force_down(self):
         if not self.has_game_ended:

@@ -20,7 +20,7 @@ class MyWindow(pyglet.window.Window):
         self.direction_x_step = 0
         self.iteration = 0
         self.extra_frames_help = 2
-        self.i = 0
+        self.iterations_blocked = 0
 
         self.batch = pyglet.graphics.Batch()
         self.grid_lines = []
@@ -157,25 +157,22 @@ class MyWindow(pyglet.window.Window):
             print(f"total_time: {end_time - start_time}")
 
     def update(self, dt):
-        if self.direction_x_step != 0:
-            if not self.was_direction_0:
+        if self.iteration % 2 == 0:
+            if self.direction_x_step != 0 and not self.was_direction_0:
                 self.tetris_game.move_piece_x_steps(self.direction_x_step)
-        self.was_direction_0 = self.direction_x_step == 0
-        if self.i >= self.extra_frames_help or not self.tetris_game.check_user_piece_down():
-            if self.iteration % 4 == 0 or self.i > self.extra_frames_help:
+            self.was_direction_0 = self.direction_x_step == 0
+        elif self.iteration % 3 == 0:
+            if self.tetris_game.check_user_piece_down() or self.iterations_blocked >= self.extra_frames_help:
                 self.tetris_game.render()
-                self.iteration = 0
-            if self.iteration % 4 == 2 and self.is_fast_mode:
+                self.iterations_blocked = 0
+            else:
+                self.iterations_blocked += 1
+        else:
+            if self.is_fast_mode:
                 self.tetris_game.move_down_user_piece()
 
-            self.i = 0
-        else:
-            self.i += 1
-            if self.is_fast_mode:
-                self.i += 1
-
         self.iteration += 1
-        self.iteration %= 4
+        self.iteration %= 12
 
     def change_mouse_curser(self):
         default_cursor = self.get_system_mouse_cursor(self.CURSOR_DEFAULT)
