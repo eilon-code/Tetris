@@ -64,11 +64,18 @@ class TetrisGame:
         return self.user_piece is None or not self.user_piece.check_move_down(self)
 
     def force_down(self):
+        game_ended = False
         if self.user_piece is not None:
             while self.user_piece.count_moves_down(self) > 0:
                 self.move_down_user_piece()
+            for node in self.user_piece.nodes:
+                if round(node.y) >= self.rows - 1:
+                    game_ended = True
             self.user_piece = None
-        self.add_piece()
+        if not game_ended:
+            self.add_piece()
+        else:
+            self.has_game_ended = True
 
     def pop_full_rows(self):
         rows_to_pop = []
@@ -153,20 +160,21 @@ class TetrisGame:
         return piece
 
     def switch_hold(self):
-        for node in self.user_piece.nodes:
-            if round(node.y) < self.rows:
-                self.grid[round(node.y)][round(node.x)] = None
+        if self.user_piece is not None:
+            for node in self.user_piece.nodes:
+                if round(node.y) < self.rows:
+                    self.grid[round(node.y)][round(node.x)] = None
 
-        piece_to_hold = self.user_piece
-        self.grid_pieces.remove(piece_to_hold)
-        self.add_piece(self.hold_piece)
-        self.hold_piece = None
-        self.hold_piece = piece_to_hold
+            piece_to_hold = self.user_piece
+            self.grid_pieces.remove(piece_to_hold)
+            self.add_piece(self.hold_piece)
+            self.hold_piece = None
+            self.hold_piece = piece_to_hold
 
     def render(self):
         start_time = time.time()
         if self.has_game_ended:
-            return False
+            pass
         self.pop_full_rows()
         self.move_all_down()
 
@@ -187,8 +195,6 @@ class TetrisGame:
         total_time = end_time - start_time
         if total_time > 1 / 200.0:
             print(f"Render Over-run: {total_time}")
-
-        return False
 
     def get_drop_mark(self):
         if self.user_piece is None:
