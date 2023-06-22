@@ -1,6 +1,5 @@
 import math
 import random
-import time
 
 from utils import Point
 
@@ -173,10 +172,8 @@ class TetrisGame:
             self.hold_piece = piece_to_hold
 
     def render(self):
-        start_time = time.time()
         if self.has_game_ended:
             pass
-        self.pop_full_rows()
         self.move_all_down()
 
         if self.user_piece is None:
@@ -191,11 +188,6 @@ class TetrisGame:
                 self.add_piece()
             else:
                 self.has_game_ended = True
-
-        end_time = time.time()
-        total_time = end_time - start_time
-        if total_time > 1 / 200.0:
-            print(f"Render Over-run: {total_time}")
 
     def get_drop_mark(self):
         if self.user_piece is None:

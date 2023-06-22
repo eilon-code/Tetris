@@ -157,6 +157,8 @@ class MyWindow(pyglet.window.Window):
             print(f"total_time: {end_time - start_time}")
 
     def update(self, dt):
+        start_time = time.time()
+
         if self.iteration % 2 == 0:
             if self.direction_x_step != 0 and not self.was_direction_0:
                 self.tetris_game.move_piece_x_steps(self.direction_x_step)
@@ -168,11 +170,20 @@ class MyWindow(pyglet.window.Window):
             else:
                 self.iterations_blocked += 1
         else:
+            if self.iteration % 3 == 2:
+                self.tetris_game.pop_full_rows()
             if self.is_fast_mode:
                 self.tetris_game.move_down_user_piece()
 
         self.iteration += 1
         self.iteration %= 12
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        if total_time > 1 / 200.0:
+            print("--------------------------------------")
+            print(f"Update Over-run: {total_time}")
+            print("--------------------------------------")
 
     def change_mouse_curser(self):
         default_cursor = self.get_system_mouse_cursor(self.CURSOR_DEFAULT)
@@ -336,7 +347,7 @@ class MyWindow(pyglet.window.Window):
 
             graphics_node = self.outer_pieces_graphics[piece_index][node_index]
             for i in range(len(graphics_node)):
-                graphics_node[i].anchor_position =\
+                graphics_node[i].anchor_position = \
                     (
                         -round(x + piece.relative_nodes[node_index].x * self.outer_cell_size),
                         -round(y + (piece.relative_nodes[node_index].y - y_min) * self.outer_cell_size)
@@ -485,7 +496,8 @@ class MyWindow(pyglet.window.Window):
                                  self.batch))
         self.extra_graphics_texts['hold'] = pyglet.text.Label(f"Hold Piece:", font_name='David', font_size=20,
                                                               x=round(
-                                                                  start_x - self.cell_size * (self.tetris_game.columns + 5)),
+                                                                  start_x - self.cell_size * (
+                                                                              self.tetris_game.columns + 5)),
                                                               y=round(start_y - self.cell_size / 4),
                                                               anchor_x='center', anchor_y='top', color=(0, 0, 0, 255))
 
@@ -501,7 +513,8 @@ class MyWindow(pyglet.window.Window):
                                                                     font_size=18,
                                                                     x=self.width // 2,
                                                                     y=self.height // 2 + round(
-                                                                        self.cell_size * (self.tetris_game.rows // 2 + 1)),
+                                                                        self.cell_size * (
+                                                                                    self.tetris_game.rows // 2 + 1)),
                                                                     anchor_x='center', anchor_y='center')
 
     def add_outer_pieces_to_batch(self):
