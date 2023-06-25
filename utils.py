@@ -8,19 +8,29 @@ class Point:
         self.y = y
 
 
-def draw_rectangle(x, y, width, height, color, opacity, batch):
+def play_audio(sound, volume=1.0, loop=False):
+    # create a player and queue the song
+    player = pyglet.media.Player()
+    player.queue(sound)
+    player.volume = volume
+    player.loop = loop
+    player.play()
+    return player
+
+
+def draw_rectangle(x, y, width, height, color, opacity=255, batch=None):
     rectangle = shapes.Rectangle(x, y, width, height, color=color, batch=batch)
     rectangle.opacity = opacity
     return rectangle
 
 
-def draw_triangle(x1, y1, x2, y2, x3, y3, color, opacity, batch):
+def draw_triangle(x1, y1, x2, y2, x3, y3, color, opacity=255, batch=None):
     triangle = shapes.Triangle(x1, y1, x2, y2, x3, y3, color=color, batch=batch)
     triangle.opacity = opacity
     return triangle
 
 
-def draw_line(x1, y1, x2, y2, color, width, opacity, batch):
+def draw_line(x1, y1, x2, y2, color, width, opacity=255, batch=None):
     line = shapes.Line(x1, y1, x2, y2, color=color, batch=batch, width=width)
     line.opacity = opacity
     return line

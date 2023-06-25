@@ -2,6 +2,7 @@ import time
 
 import pyglet
 from pyglet.gl import *
+from pyglet.media import StaticSource
 
 import utils
 from tetris import *
@@ -59,6 +60,23 @@ class MyWindow(pyglet.window.Window):
         background_color = [i / 255 for i in background_color]
         glClearColor(*background_color)
 
+        self.background_sound = StaticSource(pyglet.media.load('resources/Tetris.mp3'))
+        self.popping_sound = StaticSource(pyglet.media.load('resources/clear.wav'))
+        self.force_down_sound = StaticSource(pyglet.media.load('resources/SFX_PieceFall.ogg'))
+
+        self.music_player = utils.play_audio(self.background_sound, volume=0.03, loop=True)
+        self.is_sound_on = True
+        self.sound_rectangle = utils.draw_rectangle(
+            x=self.width / 10, y=self.height / 10, width=self.width / 15, height=self.width / 15,
+            color=(255, 255, 255), batch=self.batch)
+
+        self.sound_icons = {
+            True: pyglet.image.load("resources/sound_on.png"),
+            False: pyglet.image.load("resources/sound_off.png")
+        }
+        self.sound_sprite = pyglet.sprite.Sprite(img=self.sound_icons[self.is_sound_on], batch=self.batch,
+                                                 x=self.sound_rectangle.x, y=self.sound_rectangle.y)
+
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.LEFT:
             self.direction_x_step = -1
@@ -71,6 +89,8 @@ class MyWindow(pyglet.window.Window):
         elif symbol == pyglet.window.key.Z:
             self.tetris_game.rotate_piece_90(True)
         elif symbol == pyglet.window.key.SPACE:
+            if self.is_sound_on and not self.tetris_game.has_game_ended:
+                utils.play_audio(self.force_down_sound)
             self.tetris_game.force_down()
         elif symbol == pyglet.window.key.TAB:
             self.tetris_game.switch_hold()
@@ -98,20 +118,35 @@ class MyWindow(pyglet.window.Window):
         self.defeat_button.click(x, y)
         self.award_button.click(x, y)
 
+        if self.sound_rectangle.x < x < self.sound_rectangle.x + self.sound_rectangle.width and \
+                self.sound_rectangle.y < y < self.sound_rectangle.y + self.sound_rectangle.height:
+            self.is_sound_on = not self.is_sound_on
+            if self.is_sound_on:
+                self.music_player.play()
+            else:
+                self.music_player.pause()
+
     def on_mouse_motion(self, x, y, dx, dy):
         self.defeat_button.update_mouse_movement(x, y, dx, dy)
         self.award_button.update_mouse_movement(x, y, dx, dy)
 
+        if self.sound_rectangle.x < x < self.sound_rectangle.x + self.sound_rectangle.width and \
+                self.sound_rectangle.y < y < self.sound_rectangle.y + self.sound_rectangle.height:
+            self.change_mouse_curser('hand_cursor')
+        else:
+            self.change_mouse_curser()
+
     def on_draw(self):
         start_time = time.time()
         self.clear()  # Clear the window
+        self.sound_sprite.image = self.sound_icons[self.is_sound_on]
+
         clear_time = time.time()
 
-        self.change_mouse_curser()
         self.update_score()
         grid_time = time.time()
 
-        self.draw_tetris_piece_to_grid(self.tetris_game.get_drop_mark(), opacity=100)
+        self.draw_tetris_piece_to_grid(self.tetris_game.get_drop_mark(), opacity=80, outer_opacity=40)
         # self.draw_pieces_to_grid()
         self.draw_tetris_grid_pieces()
         grid_pieces_time = time.time()
@@ -171,7 +206,8 @@ class MyWindow(pyglet.window.Window):
                 self.iterations_blocked += 1
         else:
             if self.iteration % 3 == 2:
-                self.tetris_game.pop_full_rows()
+                if self.tetris_game.pop_full_rows() and self.is_sound_on:
+                    utils.play_audio(self.popping_sound, volume=0.3)
             if self.is_fast_mode:
                 self.tetris_game.move_down_user_piece()
 
@@ -185,18 +221,20 @@ class MyWindow(pyglet.window.Window):
             print(f"Update Over-run: {total_time}")
             print("--------------------------------------")
 
-    def change_mouse_curser(self):
-        default_cursor = self.get_system_mouse_cursor(self.CURSOR_DEFAULT)
-        # text_cursor = self.get_system_mouse_cursor(self.CURSOR_TEXT)
-        # help_cursor = self.get_system_mouse_cursor(self.CURSOR_HELP)
-        # crosshair_cursor = self.get_system_mouse_cursor(self.CURSOR_CROSSHAIR)
-        # no_cursor = self.get_system_mouse_cursor(self.CURSOR_NO)
-        # size_cursor = self.get_system_mouse_cursor(self.CURSOR_SIZE)
-        # wait_cursor = self.get_system_mouse_cursor(self.CURSOR_WAIT)
-        # wait_arrow_cursor = self.get_system_mouse_cursor(self.CURSOR_WAIT_ARROW)
+    def change_mouse_curser(self, cursor_key='default_cursor'):
+        cursors = {
+            'default_cursor': self.get_system_mouse_cursor(self.CURSOR_DEFAULT),
+            'text_cursor': self.get_system_mouse_cursor(self.CURSOR_TEXT),
+            'help_cursor': self.get_system_mouse_cursor(self.CURSOR_HELP),
+            'crosshair_cursor': self.get_system_mouse_cursor(self.CURSOR_CROSSHAIR),
+            'no_cursor': self.get_system_mouse_cursor(self.CURSOR_NO),
+            'size_cursor': self.get_system_mouse_cursor(self.CURSOR_SIZE),
+            'wait_cursor': self.get_system_mouse_cursor(self.CURSOR_WAIT),
+            'wait_arrow_cursor': self.get_system_mouse_cursor(self.CURSOR_WAIT_ARROW),
+            'hand_cursor': self.get_system_mouse_cursor(self.CURSOR_HAND)
+        }
 
-        cursor = default_cursor
-        self.set_mouse_cursor(cursor)
+        self.set_mouse_cursor(cursors[cursor_key])
 
     def add_grid_to_batch(self):
         x_center = self.width / 2
@@ -208,11 +246,14 @@ class MyWindow(pyglet.window.Window):
         y_start = round(y_center - (self.tetris_game.rows / 2) * self.cell_size)
         y_end = round(y_center + (self.tetris_game.rows / 2) * self.cell_size)
 
-        for x in range(x_start, x_end + 1, self.cell_size):
-            self.grid_lines.append(utils.draw_line(x, y_start, x, y_end, (0, 0, 0), 2, 255, self.batch))
+        self.grid_lines.append(utils.draw_rectangle(x_start, y_start, x_end - x_start, y_end - y_start,
+                                                    (0, 0, 0), batch=self.batch))
 
-        for y in range(y_start, y_end + 1, self.cell_size):
-            self.grid_lines.append(utils.draw_line(x_start, y, x_end, y, (0, 0, 0), 2, 255, self.batch))
+        # for x in range(x_start, x_end + 1, self.cell_size):
+        #     self.grid_lines.append(utils.draw_line(x, y_start, x, y_end, (0, 0, 0), 2, batch=self.batch))
+        #
+        # for y in range(y_start, y_end + 1, self.cell_size):
+        #     self.grid_lines.append(utils.draw_line(x_start, y, x_end, y, (0, 0, 0), 2, batch=self.batch))
 
         for row in range(self.tetris_game.rows):
             for col in range(self.tetris_game.columns):
@@ -223,7 +264,7 @@ class MyWindow(pyglet.window.Window):
 
     def draw_pieces_to_grid(self):
         for piece in self.tetris_game.grid_pieces:
-            self.draw_tetris_piece_to_grid(piece, opacity=255)
+            self.draw_tetris_piece_to_grid(piece)
 
     def update_score(self):
         self.extra_graphics_texts['score'].text = f"Score: {self.tetris_game.score}"
@@ -428,7 +469,7 @@ class MyWindow(pyglet.window.Window):
             round(x + edges), round(y + edges),
             round(cell_size - 2 * edges), round(cell_size - 2 * edges), color, 255, self.batch))
 
-    def draw_tetris_piece_to_grid(self, piece, opacity):
+    def draw_tetris_piece_to_grid(self, piece, opacity=255, outer_opacity=255):
         if piece is not None:
             for node in piece.nodes:
                 if round(node.y) < self.tetris_game.rows:
@@ -438,7 +479,10 @@ class MyWindow(pyglet.window.Window):
                     dark = [round(0.7 * i + 0.3 * 0) for i in piece.color]
 
                     for i in range(len(cell)):
-                        cell[i].opacity = opacity
+                        if i == len(cell) - 1:
+                            cell[i].opacity = opacity
+                        else:
+                            cell[i].opacity = outer_opacity
                         if i < 3:
                             cell[i].color = bright
                         elif i < 6:
@@ -472,8 +516,7 @@ class MyWindow(pyglet.window.Window):
     def clear_grid(self):
         for cell in self.grid_cells:
             for shape in cell:
-                shape.opacity = 255
-                shape.color = (0, 0, 0)
+                shape.opacity = 0
 
     def add_extra_graphics(self):
         start_x = self.width // 2 + round(self.cell_size * (self.tetris_game.columns / 2 + 1))
@@ -497,7 +540,7 @@ class MyWindow(pyglet.window.Window):
         self.extra_graphics_texts['hold'] = pyglet.text.Label(f"Hold Piece:", font_name='David', font_size=20,
                                                               x=round(
                                                                   start_x - self.cell_size * (
-                                                                              self.tetris_game.columns + 5)),
+                                                                          self.tetris_game.columns + 5)),
                                                               y=round(start_y - self.cell_size / 4),
                                                               anchor_x='center', anchor_y='top', color=(0, 0, 0, 255))
 
@@ -514,7 +557,7 @@ class MyWindow(pyglet.window.Window):
                                                                     x=self.width // 2,
                                                                     y=self.height // 2 + round(
                                                                         self.cell_size * (
-                                                                                    self.tetris_game.rows // 2 + 1)),
+                                                                                self.tetris_game.rows // 2 + 1)),
                                                                     anchor_x='center', anchor_y='center')
 
     def add_outer_pieces_to_batch(self):
