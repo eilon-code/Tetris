@@ -206,7 +206,8 @@ class MyWindow(pyglet.window.Window):
                 self.iterations_blocked += 1
         else:
             if self.iteration % 3 == 2:
-                if self.tetris_game.pop_full_rows() and self.is_sound_on:
+                some_rows_popped = self.tetris_game.pop_full_rows()
+                if some_rows_popped and self.is_sound_on:
                     utils.play_audio(self.popping_sound, volume=0.3)
             if self.is_fast_mode:
                 self.tetris_game.move_down_user_piece()
